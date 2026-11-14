@@ -1,14 +1,36 @@
 // 3D avtodrom: "ilon", estakada (qiyalikda to'xtab yurish) va garajga orqa bilan kirish.
 // Birliklar: metr va soniya. Mashina boshida z=0 da turadi va -z yo'nalishiga qarab yuradi.
-import * as THREE from "./vendor/three.module.min.js";
+import * as THREE from "three";
+import { GLTFLoader } from "./vendor/jsm/loaders/GLTFLoader.js";
+import { MeshoptDecoder } from "./vendor/jsm/libs/meshopt_decoder.module.js";
 
 // ---------- MASHINALAR (past poligonli, logotipsiz) ----------
+// O'lchamlar (metr) ishlab chiqaruvchi va ma'lumotnoma saytlaridagi qiymatlar bo'yicha: uzunlik, kenglik, o'q oralig'i.
+// model — 3D fayl (CC-BY-4.0, mualliflar CREDITS.md da), yaw — modelni oldi −z ga qaratish uchun burilish.
 export const CARS = {
-  cobalt: { name: "Cobalt", color: 0xf4f4f2, len: 4.5, wid: 1.74, type: "sedan", cabH: 0.52, wb: 2.6, acc: 3.0 },
-  nexia: { name: "Nexia", color: 0xb9bec6, len: 4.3, wid: 1.68, type: "sedan", cabH: 0.5, wb: 2.52, acc: 2.8 },
-  spark: { name: "Spark", color: 0xd8262f, len: 3.6, wid: 1.6, type: "hatch", cabH: 0.6, wb: 2.37, acc: 2.6 },
-  damas: { name: "Damas", color: 0xfafafa, len: 3.5, wid: 1.4, type: "van", cabH: 0.9, wb: 1.84, acc: 2.2 },
+  gentra: { name: "Gentra", color: 0x111111, len: 4.515, wid: 1.725, wb: 2.6, acc: 2.9, type: "sedan", model: "gentra", yaw: 0 },
+  cobalt: { name: "Cobalt", color: 0xf4f4f2, len: 4.479, wid: 1.735, wb: 2.62, acc: 3.0, type: "sedan", cabH: 0.52 },
+  malibu: { name: "Malibu", color: 0xdcdcdc, len: 4.933, wid: 1.854, wb: 2.829, acc: 3.4, type: "sedan", model: "malibu", yaw: Math.PI },
+  spark: { name: "Spark", color: 0xd8262f, len: 3.64, wid: 1.597, wb: 2.375, acc: 2.6, type: "hatch", cabH: 0.6 },
+  damas: { name: "Damas", color: 0xfafafa, len: 3.485, wid: 1.4, wb: 1.84, acc: 2.2, type: "van", model: "damas", yaw: -Math.PI / 2 },
 };
+
+const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
+const modelCache = {};
+function loadModel(name) { return modelCache[name] ||= loader.loadAsync(`models/${name}.glb`).then(g => g.scene); }
+
+// 3D modelni yuklab, real uzunlikka masshtablaydi va g guruhiga joylaydi
+function attachModel(g, spec) {
+  loadModel(spec.model).then(src => {
+    const o = src.clone(true), piv = new THREE.Group();
+    piv.add(o); piv.rotation.y = spec.yaw; piv.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(piv), size = box.getSize(new THREE.Vector3());
+    const k = spec.len / Math.max(size.x, size.z); piv.scale.setScalar(k); piv.updateMatrixWorld(true);
+    const b2 = new THREE.Box3().setFromObject(piv), c = b2.getCenter(new THREE.Vector3());
+    piv.position.set(-c.x, -b2.min.y, -c.z);
+    g.add(piv); g.remove(g.placeholder);
+  }).catch(() => {});   // yuklanmasa, oddiy model qoladi
+}
 
 // Yon profil [z, y] nuqtalaridan (old tomoni −z) kenglik bo'yicha cho'zilgan jism yasaydi
 function prism(pts, width, mat) {
@@ -32,6 +54,19 @@ function profiles(spec) {
 }
 
 function carMesh(spec) {
+  if (spec.model) {
+    const g = new THREE.Group();
+    g.placeholder = simpleCar({ ...spec, cabH: spec.type === "van" ? 0.9 : 0.5 }); g.add(g.placeholder);
+    g.wheels = g.placeholder.wheels; g.brake = g.placeholder.brake;
+    attachModel(g, spec);
+    const sh = new THREE.Mesh(new THREE.PlaneGeometry(spec.wid * 1.15, spec.len * 1.05), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.35 }));
+    sh.rotation.x = -Math.PI / 2; sh.position.y = 0.02; g.add(sh);
+    return g;
+  }
+  return simpleCar(spec);
+}
+
+function simpleCar(spec) {
   const g = new THREE.Group(), L = spec.len, W = spec.wid, P = profiles(spec);
   const paint = new THREE.MeshStandardMaterial({ color: spec.color, roughness: 0.3, metalness: 0.45 });
   const glass = new THREE.MeshStandardMaterial({ color: 0x1b2633, roughness: 0.08, metalness: 0.7 });
@@ -157,6 +192,16 @@ function buildWorld(scene) {
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 9), new THREE.MeshStandardMaterial({ color: 0xcfd8dc })); pole.position.set(-12, 4.5, 2); scene.add(pole);
   [0x1eb4e6, 0xffffff, 0x1eb53a].forEach((c, i) => { const f = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.4, 1.8), new THREE.MeshStandardMaterial({ color: c, side: THREE.DoubleSide }));
     f.position.set(-12, 8.6 - i * 0.42, 2.95); scene.add(f); });
+  // tartibga soluvchi (qo'llari yon tomonga yoyilgan — YHQ'dagi tartibga soluvchi signali)
+  loadModel("police").then(src => {
+    const o = src.clone(true), piv = new THREE.Group(); piv.add(o);
+    const box = new THREE.Box3().setFromObject(piv), k = 1.8 / box.getSize(new THREE.Vector3()).y;
+    piv.scale.setScalar(k); piv.updateMatrixWorld(true);
+    const b2 = new THREE.Box3().setFromObject(piv), c = b2.getCenter(new THREE.Vector3());
+    piv.position.set(-7 - c.x, -b2.min.y, -4 - c.z); scene.add(piv);
+    const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.12, 20), new THREE.MeshStandardMaterial({ color: 0xffffff }));
+    stand.position.set(-7, 0.06, -4); scene.add(stand);
+  }).catch(() => {});
   return cones;
 }
 

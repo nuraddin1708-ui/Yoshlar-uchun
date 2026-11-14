@@ -190,10 +190,12 @@ function carSelect() {
     <p>Mashinani tanlang. Mashqlar: "ilon", estakadada to'xtab yurish, garajga orqa bilan kirish.</p>
     ${Object.entries(CARS).map(([id, c]) => `<button class="tile" onclick="Drive.start('${id}')">
       <span class="ic" style="width:34px;height:22px;border-radius:6px;background:#${c.color.toString(16).padStart(6, "0")};border:1px solid #888"></span>
-      <div><b>${c.name}</b><span>${c.len} m · ${id === "damas" ? "miniven" : id === "spark" ? "xetchbek" : "sedan"}</span></div></button>`).join("")}
+      <div><b>${c.name}${c.model ? " · 3D model" : ""}</b><span>${c.len.toFixed(2)} × ${c.wid.toFixed(2)} m · ${{ sedan: "sedan", hatch: "xetchbek", van: "miniven" }[c.type]}</span></div></button>`).join("")}
     <div class="explain">🎮 <b>Boshqaruv:</b> ◀ ▶ — rul, ▲ — gaz, ⏹ — tormoz, R — orqaga yurish, 🎥 — kamera (orqadan / tepadan / kabinadan).
       Telefonni gorizontal ushlash qulayroq.</div>
-    <button class="btn ghost" onclick="home()">Orqaga</button>`;
+    <button class="btn ghost" onclick="home()">Orqaga</button>
+    <p style="font-size:12px">3D modellar (CC BY 4.0): Gentra — uzb_rx7, Malibu 2022 — slavanik24250794, Damas — own.guest,
+      tartibga soluvchi — LokitoBlu (Sketchfab). Chevrolet nomlari GM kompaniyasining savdo belgilari.</p>`;
 }
 function showDriveResult(passed, reason, time, pen, limit) {
   app.innerHTML = `
@@ -219,6 +221,7 @@ addEventListener("keyup", e => { if (KEYMAP[e.key]) Drive.keys[KEYMAP[e.key]] = 
 
 load();
 </script>
+<script type="importmap">{"imports":{"three":"./vendor/three.module.min.js"}}</script>
 <script type="module" src="avtodrom3d.js"></script>
 </body>
 </html>
