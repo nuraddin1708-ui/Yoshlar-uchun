@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prava Mashq</title>
+<style>
+  :root {
+    --bg: #f4f6fb; --card: #ffffff; --text: #1b2333; --muted: #6b7486;
+    --primary: #1f5eff; --ok: #1a9c55; --bad: #d93a3a; --border: #e2e6ef;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #11151d; --card: #1a202b; --text: #e8ecf3; --muted: #9aa3b5; --border: #2a3242; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+  .wrap { max-width: 560px; margin: 0 auto; padding: 16px; min-height: 100vh; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 20px; }
+  h1 { font-size: 26px; margin: 8px 0 4px; }
+  h2 { font-size: 19px; line-height: 1.35; margin: 12px 0 16px; }
+  p { color: var(--muted); line-height: 1.5; }
+  button { font: inherit; cursor: pointer; border: 0; border-radius: 12px; }
+  .btn { width: 100%; padding: 15px; font-size: 17px; font-weight: 600; background: var(--primary); color: #fff; margin-top: 10px; }
+  .btn.ghost { background: transparent; color: var(--primary); border: 1.5px solid var(--primary); }
+  .opt { display: block; width: 100%; text-align: left; padding: 14px 16px; margin: 8px 0; background: var(--bg);
+    color: var(--text); border: 1.5px solid var(--border); font-size: 16px; line-height: 1.4; }
+  .opt.ok { border-color: var(--ok); background: color-mix(in srgb, var(--ok) 14%, transparent); }
+  .opt.bad { border-color: var(--bad); background: color-mix(in srgb, var(--bad) 14%, transparent); }
+  .top { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 14px; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin: 10px 0 4px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--primary); transition: width .3s; }
+  .sign { display: flex; justify-content: center; margin: 6px 0 2px; }
+  .sign svg { width: 120px; height: 120px; }
+  .explain { margin-top: 12px; padding: 12px 14px; border-radius: 12px; background: var(--bg); font-size: 15px; line-height: 1.5; }
+  .big { font-size: 48px; font-weight: 800; text-align: center; margin: 8px 0; }
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 0; }
+  .stat { background: var(--bg); border-radius: 12px; padding: 12px; text-align: center; }
+  .stat b { display: block; font-size: 22px; }
+  input { width: 100%; padding: 14px; font-size: 17px; border-radius: 12px; border: 1.5px solid var(--border);
+    background: var(--bg); color: var(--text); margin-top: 8px; text-transform: uppercase; }
+  .lock { font-size: 44px; text-align: center; }
+  .note { font-size: 13px; color: var(--muted); margin-top: 14px; }
+</style>
+</head>
+<body>
+<div class="wrap"><div class="card" id="app"></div></div>
+<script>
+// ---------- YO'L BELGILARI (SVG) ----------
+const SIGN = {
+  stop: `<svg viewBox="0 0 100 100"><polygon points="30,4 70,4 96,30 96,70 70,96 30,96 4,70 4,30" fill="#d32f2f" stroke="#fff" stroke-width="4"/><text x="50" y="60" font-size="26" font-weight="800" fill="#fff" text-anchor="middle" font-family="Arial">STOP</text></svg>`,
+  giveway: `<svg viewBox="0 0 100 100"><polygon points="4,8 96,8 50,92" fill="#d32f2f"/><polygon points="20,18 80,18 50,72" fill="#fff"/></svg>`,
+  noentry: `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="#d32f2f"/><rect x="18" y="41" width="64" height="18" fill="#fff"/></svg>`,
+  warning: `<svg viewBox="0 0 100 100"><polygon points="50,6 96,90 4,90" fill="#d32f2f"/><polygon points="50,24 82,82 18,82" fill="#fff"/><rect x="46" y="40" width="8" height="24" fill="#111"/><rect x="46" y="68" width="8" height="8" fill="#111"/></svg>`,
+  straight: `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="#1565c0"/><polygon points="50,18 72,44 58,44 58,82 42,82 42,44 28,44" fill="#fff"/></svg>`,
+  crossing: `<svg viewBox="0 0 100 100"><rect x="4" y="4" width="92" height="92" rx="6" fill="#1565c0"/><polygon points="50,14 88,84 12,84" fill="#fff"/><circle cx="52" cy="40" r="5" fill="#111"/><path d="M50 47 L46 62 L40 74 M47 60 L56 74 M49 50 L58 56 M48 51 L40 57" stroke="#111" stroke-width="4" fill="none" stroke-linecap="round"/></svg>`,
+  redlight: `<svg viewBox="0 0 100 100"><rect x="30" y="4" width="40" height="92" rx="10" fill="#263238"/><circle cx="50" cy="22" r="11" fill="#ff3b30"/><circle cx="50" cy="50" r="11" fill="#55606a"/><circle cx="50" cy="78" r="11" fill="#55606a"/></svg>`,
+  yellow: `<svg viewBox="0 0 100 100"><rect x="30" y="4" width="40" height="92" rx="10" fill="#263238"/><circle cx="50" cy="22" r="11" fill="#55606a"/><circle cx="50" cy="50" r="11" fill="#ffcc00"/><circle cx="50" cy="78" r="11" fill="#55606a"/><path d="M78 40 l10 -6 M80 50 h12 M78 60 l10 6 M22 40 l-10 -6 M20 50 h-12 M22 60 l-10 6" stroke="#ffcc00" stroke-width="3"/></svg>`,
+  rail: `<svg viewBox="0 0 100 100"><rect x="4" y="4" width="92" height="92" rx="6" fill="#fff" stroke="#d32f2f" stroke-width="6"/><circle cx="32" cy="50" r="14" fill="#d32f2f"/><circle cx="68" cy="50" r="14" fill="#d32f2f"/></svg>`,
+  solid: `<svg viewBox="0 0 100 100"><rect width="100" height="100" fill="#555b63"/><rect x="47" y="0" width="6" height="100" fill="#fff"/></svg>`,
+  dashed: `<svg viewBox="0 0 100 100"><rect width="100" height="100" fill="#555b63"/><rect x="47" y="4" width="6" height="22" fill="#fff"/><rect x="47" y="40" width="6" height="22" fill="#fff"/><rect x="47" y="76" width="6" height="22" fill="#fff"/></svg>`,
+};
+
+// ---------- SAVOLLAR ----------
+// a — to'g'ri javob indeksi. Savollar umumiy yo'l harakati qoidalari asosida tuzilgan.
+const Q = [
+  {s:"stop", q:"Bu belgi nimani bildiradi?", o:["Faqat sekinlashish kerak","To'xtash chizig'i oldida albatta to'xtab, keyin yo'l berish kerak","To'xtab turish taqiqlangan"], a:1, e:"\"To'xtamasdan harakatlanish taqiqlangan\" belgisi: yo'l bo'sh bo'lsa ham albatta to'xtash shart."},
+  {s:"giveway", q:"Bu belgi nimani bildiradi?", o:["Kesishgan yo'ldagi transport vositalariga yo'l berish kerak","Siz asosiy yo'ldasiz","Harakat taqiqlangan"], a:0, e:"\"Yo'l bering\" belgisi: kesishuvda kesib o'tilayotgan yo'ldagi transportga yo'l berasiz."},
+  {s:"noentry", q:"Bu belgi qanday ma'noga ega?", o:["To'xtash taqiqlangan","Kirish taqiqlangan","Bir tomonlama yo'l"], a:1, e:"Qizil doira ichidagi oq to'g'ri to'rtburchak — \"Kirish taqiqlangan\"."},
+  {s:"warning", q:"Qizil hoshiyali uchburchak shaklidagi belgilar qaysi guruhga kiradi?", o:["Taqiqlovchi belgilar","Buyuruvchi belgilar","Ogohlantiruvchi belgilar"], a:2, e:"Uchburchak shaklidagi qizil hoshiyali belgilar oldinda xavfli joy borligidan ogohlantiradi."},
+  {s:"straight", q:"Ko'k doira ichida oq strelka bo'lgan belgi nimani bildiradi?", o:["Faqat strelka yo'nalishida harakatlanish mumkin","Bu yo'nalish tavsiya etiladi, xolos","Bu yo'nalishda harakat taqiqlangan"], a:0, e:"Ko'k doira shaklidagi belgilar buyuruvchi belgilardir — ko'rsatilgan yo'nalishda harakatlanish majburiy."},
+  {s:"crossing", q:"Bu belgi nimani bildiradi?", o:["Piyodalar yo'lakchasi","Piyodalar o'tish joyi","Piyodalar harakati taqiqlangan"], a:1, e:"Ko'k kvadrat ichidagi oq uchburchakda piyoda tasviri — \"Piyodalar o'tish joyi\"."},
+  {s:"redlight", q:"Svetoforning qizil chirog'i yonganda haydovchi nima qilishi kerak?", o:["Ehtiyotkorlik bilan o'tib ketishi","To'xtash chizig'i oldida to'xtashi","Signal berib o'tishi"], a:1, e:"Qizil signal harakatni taqiqlaydi. To'xtash chizig'i oldida to'xtash kerak."},
+  {s:"yellow", q:"Sariq chiroq miltillab yonib turibdi. Bu nimani bildiradi?", o:["Chorraha tartibga solinmagan, ehtiyot bo'lish kerak","Harakat taqiqlangan","Faqat o'ngga burilish mumkin"], a:0, e:"Miltillovchi sariq signal chorraha svetofor bilan tartibga solinmaganini bildiradi — belgilar va qoidalarga ko'ra harakatlaniladi."},
+  {q:"Teng ahamiyatli yo'llar kesishgan chorrahada kimga yo'l berish kerak?", o:["Chap tomondan kelayotganga","O'ng tomondan kelayotganga","Hech kimga — kim tez bo'lsa"], a:1, e:"Teng ahamiyatli yo'llar chorrahasida o'ng tomondan yaqinlashayotgan transport vositasiga yo'l beriladi."},
+  {q:"Ko'k chiroq va maxsus ovozli signal yoqilgan tez yordam mashinasi yaqinlashyapti. Nima qilasiz?", o:["Harakatimni o'zgartirmayman","Unga yo'l beraman","Tezlikni oshiraman"], a:1, e:"Maxsus signallari yoqilgan transport vositasiga yo'l berish majburiy."},
+  {q:"Xavfsizlik kamarini kim taqishi shart?", o:["Faqat haydovchi","Haydovchi va kamar o'rnatilgan o'rindiqlardagi yo'lovchilar","Faqat shahardan tashqarida"], a:1, e:"Kamar o'rnatilgan bo'lsa, haydovchi ham, yo'lovchilar ham uni taqishi shart."},
+  {q:"Alkogol ichgan holda transport vositasini boshqarish mumkinmi?", o:["Ozgina ichgan bo'lsa mumkin","Mumkin emas","Faqat kunduzi mumkin"], a:1, e:"Mast holatda transport vositasini boshqarish qat'iyan taqiqlanadi."},
+  {q:"Harakatlanish vaqtida telefonda gaplashish mumkinmi?", o:["Mumkin, qo'lda ushlab","Faqat \"qo'llarsiz\" (hands-free) qurilma orqali","Faqat tirbandlikda"], a:1, e:"Haydash paytida telefonni qo'lda ushlab gaplashish taqiqlanadi. Faqat qo'l bilan ushlashni talab qilmaydigan qurilma orqali mumkin."},
+  {q:"Quvib o'tish (obgon) odatda qaysi tomondan amalga oshiriladi?", o:["O'ng tomondan","Chap tomondan","Ixtiyoriy tomondan"], a:1, e:"O'ng tomonlama harakatlanishda quvib o'tish chap tomondan amalga oshiriladi."},
+  {q:"Piyodalar o'tish joyida quvib o'tish mumkinmi?", o:["Mumkin, piyoda bo'lmasa","Taqiqlangan","Faqat kechasi mumkin"], a:1, e:"Piyodalar o'tish joylarida quvib o'tish taqiqlanadi."},
+  {q:"Tunnelda harakatlanayotganda qaysi chiroqlar yoqilgan bo'lishi kerak?", o:["Hech qaysi","Yaqinni yorituvchi chiroqlar","Faqat avariya signali"], a:1, e:"Tunnelda yaqinni yorituvchi chiroqlar yoqiladi."},
+  {q:"Yo'l-transport hodisasi sodir bo'lganda birinchi navbatda nima qilish kerak?", o:["Joyidan ketib qolish","To'xtab, avariya signalini yoqish va avariya to'xtash belgisini qo'yish","Mashinani darhol boshqa joyga olib ketish"], a:1, e:"Hodisa joyida to'xtash, avariya signalini yoqish va ogohlantirish uchburchagini qo'yish kerak."},
+  {s:"rail", q:"Temir yo'l kesishmasida qizil chiroqlar navbatma-navbat miltillayapti. Nima qilasiz?", o:["Tez o'tib ketaman","To'xtayman, kesishmadan o'tish taqiqlangan","Signal berib o'taman"], a:1, e:"Svetoforning qizil signali yoki shlagbaum yopiq bo'lsa, temir yo'l kesishmasidan o'tish taqiqlanadi."},
+  {q:"Ho'l yo'lda tormozlanish masofasi qanday o'zgaradi?", o:["Qisqaradi","O'zgarmaydi","Uzayadi"], a:2, e:"Ho'l yo'lda g'ildiraklarning yo'lga ilashishi kamayadi, shuning uchun tormozlanish masofasi uzayadi."},
+  {q:"Tuman paytida qanday harakatlanish kerak?", o:["Tezlikni pasaytirib, masofani oshirish kerak","Uzoqni yorituvchi chiroqni yoqish kerak","Odatdagidek"], a:0, e:"Ko'rinish yomon bo'lganda tezlik pasaytiriladi va oldingi mashinagacha masofa oshiriladi."},
+  {s:"crossing", q:"Piyoda tartibga solinmagan piyodalar o'tish joyidan o'tyapti. Haydovchi nima qilishi kerak?", o:["Signal berib o'tishi","Piyodaga yo'l berishi","Tezlikni oshirishi"], a:1, e:"Tartibga solinmagan piyodalar o'tish joyida haydovchi piyodalarga yo'l berishi shart."},
+  {q:"Velosipedchi chap qo'lini yon tomonga to'g'ri uzatdi. Bu qanday signal?", o:["Chapga burilish","O'ngga burilish","To'xtash"], a:0, e:"Chap qo'lni yon tomonga uzatish chapga burilish signalidir."},
+  {s:"solid", q:"Yo'lning o'rtasidagi uzluksiz chiziqni kesib o'tish mumkinmi?", o:["Mumkin","Mumkin emas","Faqat quvib o'tishda mumkin"], a:1, e:"Uzluksiz chiziqni kesib o'tish taqiqlanadi."},
+  {s:"dashed", q:"Uzuq-uzuq chiziqni kesib o'tish mumkinmi?", o:["Mumkin emas","Xavfsiz bo'lsa, mumkin","Faqat kechasi mumkin"], a:1, e:"Uzuq-uzuq chiziqni xavfsizlikka ishonch hosil qilgan holda kesib o'tish mumkin."},
+  {q:"Haydovchi charchaganini sezsa, nima qilishi kerak?", o:["Tezlikni oshirib, tezroq yetib borishi","To'xtab dam olishi","Musiqani balandroq qo'yishi"], a:1, e:"Charchoq reaksiyani sekinlashtiradi. Xavfsiz joyda to'xtab dam olish kerak."},
+  {q:"Asosiy svetofor qizil, qo'shimcha seksiyada esa yashil strelka yonib turibdi. Nima qilish mumkin?", o:["Strelka yo'nalishida, boshqa yo'nalishlardagi transportga yo'l berib harakatlanish","Faqat to'g'riga yurish","Hech qaysi yo'nalishda yurish mumkin emas"], a:0, e:"Qo'shimcha seksiyadagi yashil strelka strelka yo'nalishida harakatlanishga ruxsat beradi, bunda boshqa yo'nalishlardan kelayotganlarga yo'l beriladi."},
+  {q:"Aholi punktlarida ovozli signaldan qachon foydalanish mumkin?", o:["Istalgan vaqtda","Faqat yo'l-transport hodisasining oldini olish uchun","Do'stlarni chaqirish uchun"], a:1, e:"Aholi punktlarida ovozli signal faqat hodisaning oldini olish zarur bo'lganda beriladi."},
+  {q:"Safarga chiqishdan oldin haydovchi nimani tekshirishi kerak?", o:["Faqat yoqilg'ini","Tormoz, rul, chiroqlar va shinalarning sozligini","Hech narsani"], a:1, e:"Harakatlanishdan oldin transport vositasining texnik sozligini tekshirish haydovchining majburiyatidir."},
+  {q:"Chorrahaga yaqinlashganda svetoforning sariq signali yondi, to'xtash chizig'igacha esa juda kam masofa qoldi. Keskin tormoz bermasdan to'xtay olmaysiz. Nima qilasiz?", o:["Harakatni davom ettiraman","Keskin tormoz beraman","Orqaga yuraman"], a:0, e:"Sariq signal yonganda keskin tormoz bermasdan to'xtay olmaydigan haydovchiga harakatni davom ettirishga ruxsat beriladi."},
+  {q:"Avtomagistralda orqaga yurish mumkinmi?", o:["Mumkin","Taqiqlangan","Faqat chiqish joyini o'tkazib yuborganda mumkin"], a:1, e:"Avtomagistrallarda orqaga yurish va qayrilib olish taqiqlanadi."},
+];
+
+// ---------- SOZLAMALAR ----------
+const FREE = 10;            // bepul savollar soni
+const EXAM_N = 20;          // imtihon rejimidagi savollar soni
+const EXAM_MIN = 25;        // imtihon vaqti (daqiqa)
+const MAX_ERR = 2;          // imtihonda ruxsat etilgan xatolar
+// ⚠️ DEMO: haqiqiy versiyada kod serverda tekshiriladi (README'ga qarang)
+const DEMO_CODE = "DEMO-5000";
+
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+const app = document.getElementById("app");
+let st = null, timer = null;
+const unlocked = () => store.get("prava_unlocked", false);
+const shuffle = a => a.map(x => [Math.random(), x]).sort((p, q) => p[0] - q[0]).map(x => x[1]);
+
+function home() {
+  clearInterval(timer);
+  const best = store.get("prava_best", null);
+  app.innerHTML = `
+    <h1>🚗 Prava Mashq</h1>
+    <p>Yo'l harakati qoidalari bo'yicha savollar bilan imtihonga tayyorlaning.</p>
+    <div class="stats">
+      <div class="stat"><b>${Q.length}</b>savol</div>
+      <div class="stat"><b>${best === null ? "—" : best + "/" + EXAM_N}</b>eng yaxshi natija</div>
+    </div>
+    <button class="btn" onclick="start('practice')">📘 Mashq (izohlar bilan)</button>
+    <button class="btn ghost" onclick="start('exam')">⏱ Imtihon: ${EXAM_N} savol, ${EXAM_MIN} daqiqa</button>
+    ${unlocked() ? `<p class="note">✅ To'liq versiya ochilgan</p>` :
+      `<p class="note">Bepul: dastlabki ${FREE} ta savol. To'liq versiya — 5 000 so'm.</p>`}`;
+}
+
+function start(mode) {
+  if (mode === "exam" && !unlocked()) return paywall();
+  const pool = mode === "exam" ? shuffle(Q).slice(0, EXAM_N) : (unlocked() ? Q : Q.slice(0, FREE));
+  st = { mode, list: pool, i: 0, ok: 0, err: 0, done: false, end: Date.now() + EXAM_MIN * 60000 };
+  if (mode === "exam") timer = setInterval(tick, 1000);
+  render();
+}
+
+function tick() {
+  const left = Math.max(0, st.end - Date.now());
+  const el = document.getElementById("time");
+  if (el) el.textContent = `${Math.floor(left / 60000)}:${String(Math.floor(left / 1000) % 60).padStart(2, "0")}`;
+  if (left === 0) finish("Vaqt tugadi");
+}
+
+function render() {
+  const q = st.list[st.i], n = st.list.length;
+  app.innerHTML = `
+    <div class="top"><span>${st.i + 1} / ${n}</span>
+      <span>${st.mode === "exam" ? `⏱ <b id="time"></b> · ❌ ${st.err}/${MAX_ERR}` : `✅ ${st.ok} · ❌ ${st.err}`}</span></div>
+    <div class="bar"><i style="width:${(st.i / n) * 100}%"></i></div>
+    ${q.s ? `<div class="sign">${SIGN[q.s]}</div>` : ""}
+    <h2>${q.q}</h2>
+    <div id="opts">${q.o.map((t, k) => `<button class="opt" onclick="answer(${k})">${t}</button>`).join("")}</div>
+    <div id="after"></div>`;
+  if (st.mode === "exam") tick();
+}
+
+function answer(k) {
+  if (st.done) return;
+  const q = st.list[st.i], btns = document.querySelectorAll(".opt");
+  btns.forEach(b => b.disabled = true);
+  btns[q.a].classList.add("ok");
+  if (k === q.a) st.ok++; else { st.err++; btns[k].classList.add("bad"); }
+  const last = st.i === st.list.length - 1;
+  if (st.mode === "exam" && st.err > MAX_ERR) return setTimeout(() => finish(`${MAX_ERR} tadan ko'p xato`), 900);
+  document.getElementById("after").innerHTML =
+    (st.mode === "practice" ? `<div class="explain">💡 ${q.e}</div>` : "") +
+    `<button class="btn" onclick="next()">${last ? "Natijani ko'rish" : "Keyingisi →"}</button>`;
+}
+
+function next() {
+  if (st.i === st.list.length - 1) return finish();
+  st.i++; render();
+}
+
+function finish(reason) {
+  if (st.done) return;
+  st.done = true; clearInterval(timer);
+  const exam = st.mode === "exam", pass = exam && !reason && st.err <= MAX_ERR;
+  if (exam) store.set("prava_best", Math.max(store.get("prava_best", 0), st.ok));
+  app.innerHTML = `
+    <h1>${exam ? (pass ? "🎉 Imtihondan o'tdingiz!" : "😕 O'ta olmadingiz") : "Mashq tugadi"}</h1>
+    ${reason ? `<p>Sabab: ${reason}</p>` : ""}
+    <div class="big">${st.ok} / ${exam ? EXAM_N : st.list.length}</div>
+    <div class="stats"><div class="stat"><b>${st.ok}</b>to'g'ri</div><div class="stat"><b>${st.err}</b>xato</div></div>
+    <button class="btn" onclick="start('${st.mode}')">Qaytadan</button>
+    <button class="btn ghost" onclick="home()">Bosh sahifa</button>
+    ${!unlocked() && !exam ? `<button class="btn ghost" onclick="paywall()">🔓 Barcha ${Q.length} savol va imtihon rejimini ochish</button>` : ""}`;
+}
+
+function paywall() {
+  clearInterval(timer);
+  app.innerHTML = `
+    <div class="lock">🔒</div>
+    <h1 style="text-align:center">To'liq versiya</h1>
+    <p>Barcha ${Q.length} savol, imtihon rejimi va cheksiz mashq — <b>5 000 so'm</b>.</p>
+    <p>To'lovdan keyin olgan shaxsiy kodingizni kiriting:</p>
+    <input id="code" placeholder="Masalan: AB12-CD34" autocomplete="off">
+    <button class="btn" onclick="redeem()">Ochish</button>
+    <button class="btn ghost" onclick="home()">Orqaga</button>
+    <p class="note" id="msg"></p>`;
+}
+
+function redeem() {
+  const c = document.getElementById("code").value.trim().toUpperCase();
+  if (c === DEMO_CODE) { store.set("prava_unlocked", true); home(); }
+  else document.getElementById("msg").textContent = "Kod noto'g'ri. Qayta tekshiring.";
+}
+
+home();
+</script>
+</body>
+</html>
