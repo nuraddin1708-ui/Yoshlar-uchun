@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Prava Mashq</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root {
+    --bg: var(--tg-theme-bg-color, #f4f6fb); --card: var(--tg-theme-secondary-bg-color, #ffffff);
+    --text: var(--tg-theme-text-color, #1b2333); --muted: var(--tg-theme-hint-color, #6b7486);
+    --primary: var(--tg-theme-button-color, #1f5eff); --ptext: var(--tg-theme-button-text-color, #fff);
+    --ok: #1a9c55; --bad: #d93a3a; --border: rgba(128,128,128,.25);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+  .wrap { max-width: 560px; margin: 0 auto; padding: 14px; }
+  h1 { font-size: 24px; margin: 6px 0; } h2 { font-size: 18px; line-height: 1.35; margin: 10px 0 14px; }
+  p { color: var(--muted); line-height: 1.5; margin: 6px 0; }
+  button { font: inherit; cursor: pointer; border: 0; border-radius: 12px; }
+  .btn { width: 100%; padding: 14px; font-size: 16px; font-weight: 600; background: var(--primary); color: var(--ptext); margin-top: 10px; }
+  .btn.ghost { background: transparent; color: var(--primary); border: 1.5px solid var(--primary); }
+  .tile { display: flex; gap: 14px; align-items: center; width: 100%; text-align: left; padding: 16px; margin-top: 10px;
+    background: var(--card); color: var(--text); border: 1px solid var(--border); }
+  .tile .ic { font-size: 32px; } .tile b { display: block; font-size: 17px; } .tile span { color: var(--muted); font-size: 14px; }
+  .opt { display: block; width: 100%; text-align: left; padding: 13px 15px; margin: 8px 0; background: var(--card);
+    color: var(--text); border: 1.5px solid var(--border); font-size: 16px; line-height: 1.4; }
+  .opt.ok { border-color: var(--ok); background: rgba(26,156,85,.14); }
+  .opt.bad { border-color: var(--bad); background: rgba(217,58,58,.14); }
+  .top { display: flex; justify-content: space-between; color: var(--muted); font-size: 14px; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin: 8px 0 4px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--primary); }
+  .sign { display: flex; justify-content: center; } .sign svg { width: 110px; height: 110px; }
+  .explain { margin-top: 10px; padding: 12px; border-radius: 12px; background: var(--card); font-size: 15px; line-height: 1.5; }
+  .big { font-size: 44px; font-weight: 800; text-align: center; margin: 6px 0; }
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 12px 0; }
+  .stat { background: var(--card); border-radius: 12px; padding: 12px; text-align: center; font-size: 14px; color: var(--muted); }
+  .stat b { display: block; font-size: 22px; color: var(--text); }
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 99px; font-size: 13px; background: rgba(26,156,85,.15); color: var(--ok); }
+  /* avtodrom */
+  #game { position: fixed; inset: 0; background: #2e7d32; display: none; touch-action: none; user-select: none; }
+  #cv { display: block; margin: 0 auto; }
+  .hud { position: absolute; top: 8px; left: 8px; right: 8px; display: flex; justify-content: space-between; color: #fff;
+    font-weight: 700; text-shadow: 0 1px 3px #000; font-size: 15px; pointer-events: none; }
+  .msg { position: absolute; top: 70px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,.65); color: #fff;
+    padding: 8px 14px; border-radius: 10px; font-size: 14px; width: max-content; max-width: 86%; text-align: center; display: none; }
+  .pad { position: absolute; bottom: 14px; display: flex; gap: 10px; }
+  .pad.l { left: 12px; } .pad.r { right: 12px; }
+  .pad button { width: 70px; height: 70px; border-radius: 50%; background: rgba(255,255,255,.85); font-size: 28px; color: #222; }
+  .pad button.on { background: #ffd54f; }
+  .exit { position: absolute; top: 36px; right: 8px; background: rgba(0,0,0,.5); color: #fff; padding: 6px 10px; font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+
+<div id="game">
+  <canvas id="cv"></canvas>
+  <div class="hud"><span id="hTime">⏱ 0.0</span><span id="hStep">1/3</span><span id="hPen">Jarima: 0</span></div>
+  <div class="msg" id="hMsg"></div>
+  <button class="exit" onclick="Drive.stop(true)">✕ Chiqish</button>
+  <div class="pad l"><button data-k="left">◀</button><button data-k="right">▶</button></div>
+  <div class="pad r"><button data-k="brake">⏹</button><button data-k="gas">▲</button></div>
+</div>
+
+<script>
+const tg = window.Telegram && Telegram.WebApp;
+if (tg) { tg.ready(); tg.expand(); }
+const DEV = new URLSearchParams(location.search).has("dev");
+const INIT = DEV ? "dev" : (tg && tg.initData) || "";
+const app = document.getElementById("app");
+let ME = null, QS = [], TOTAL = 0;
+
+async function api(path, body) {
+  const r = await fetch(path, { method: body ? "POST" : "GET", headers: { "X-Init-Data": INIT, "Content-Type": "application/json" },
+    body: body ? JSON.stringify(body) : undefined });
+  if (!r.ok) throw new Error(r.status);
+  return r.json();
+}
+
+async function load() {
+  if (!INIT) { app.innerHTML = `<h1>Prava Mashq</h1><p>Bu ilovani Telegram bot orqali oching.</p>`; return; }
+  try { ME = await api("/api/me"); const d = await api("/api/questions"); QS = d.questions; TOTAL = d.total; home(); }
+  catch (e) { app.innerHTML = `<h1>Xatolik</h1><p>Ma'lumot yuklanmadi. Botni qayta oching.</p>`; }
+}
+
+function home() {
+  app.innerHTML = `
+    <h1>🚗 Prava Mashq</h1>
+    <p>Salom, ${ME.name || "do'st"}! ${ME.paid ? `<span class="badge">To'liq versiya</span>` : ""}</p>
+    <button class="tile" onclick="Drive.start()"><span class="ic">🏁</span><div><b>Avtodrom</b>
+      <span>Ilon, to'xtash chizig'i va garajga kirish mashqlari</span></div></button>
+    <button class="tile" onclick="Test.start('practice')"><span class="ic">📘</span><div><b>Mashq testi</b>
+      <span>${QS.length} ta savol, izohlar bilan</span></div></button>
+    <button class="tile" onclick="${ME.paid ? "Test.start('exam')" : "buy()"}"><span class="ic">⏱</span><div><b>Imtihon ${ME.paid ? "" : "🔒"}</b>
+      <span>20 ta savol, 25 daqiqa, 2 tagacha xato</span></div></button>
+    <div class="stats">
+      <div class="stat"><b>${ME.best_test || 0}/20</b>eng yaxshi test</div>
+      <div class="stat"><b>${ME.best_drive ? ME.best_drive + " s" : "—"}</b>eng tez avtodrom</div>
+    </div>
+    ${ME.paid ? "" : `<p>Bepul: ${QS.length} ta savol va avtodrom. To'liq versiyada — barcha ${TOTAL} savol va imtihon.</p>
+      <button class="btn" onclick="buy()">⭐ To'liq versiyani ochish</button>`}`;
+}
+
+async function buy() {
+  try {
+    const { link } = await api("/api/invoice", {});
+    tg.openInvoice(link, async st => { if (st === "paid") { await load(); tg.showAlert("To'liq versiya ochildi! 🎉"); } });
+  } catch (e) { tg ? tg.showAlert("To'lovni ochib bo'lmadi. Botdagi tugmadan foydalaning.") : alert("Xatolik"); }
+}
+
+// ================= TEST =================
+const SIGN = {
+  stop: `<svg viewBox="0 0 100 100"><polygon points="30,4 70,4 96,30 96,70 70,96 30,96 4,70 4,30" fill="#d32f2f" stroke="#fff" stroke-width="4"/><text x="50" y="60" font-size="26" font-weight="800" fill="#fff" text-anchor="middle" font-family="Arial">STOP</text></svg>`,
+  giveway: `<svg viewBox="0 0 100 100"><polygon points="4,8 96,8 50,92" fill="#d32f2f"/><polygon points="20,18 80,18 50,72" fill="#fff"/></svg>`,
+  noentry: `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="#d32f2f"/><rect x="18" y="41" width="64" height="18" fill="#fff"/></svg>`,
+  warning: `<svg viewBox="0 0 100 100"><polygon points="50,6 96,90 4,90" fill="#d32f2f"/><polygon points="50,24 82,82 18,82" fill="#fff"/><rect x="46" y="40" width="8" height="24" fill="#111"/><rect x="46" y="68" width="8" height="8" fill="#111"/></svg>`,
+  straight: `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="#1565c0"/><polygon points="50,18 72,44 58,44 58,82 42,82 42,44 28,44" fill="#fff"/></svg>`,
+  crossing: `<svg viewBox="0 0 100 100"><rect x="4" y="4" width="92" height="92" rx="6" fill="#1565c0"/><polygon points="50,14 88,84 12,84" fill="#fff"/><circle cx="52" cy="40" r="5" fill="#111"/><path d="M50 47 L46 62 L40 74 M47 60 L56 74 M49 50 L58 56 M48 51 L40 57" stroke="#111" stroke-width="4" fill="none" stroke-linecap="round"/></svg>`,
+  redlight: `<svg viewBox="0 0 100 100"><rect x="30" y="4" width="40" height="92" rx="10" fill="#263238"/><circle cx="50" cy="22" r="11" fill="#ff3b30"/><circle cx="50" cy="50" r="11" fill="#55606a"/><circle cx="50" cy="78" r="11" fill="#55606a"/></svg>`,
+  yellow: `<svg viewBox="0 0 100 100"><rect x="30" y="4" width="40" height="92" rx="10" fill="#263238"/><circle cx="50" cy="22" r="11" fill="#55606a"/><circle cx="50" cy="50" r="11" fill="#ffcc00"/><circle cx="50" cy="78" r="11" fill="#55606a"/></svg>`,
+  rail: `<svg viewBox="0 0 100 100"><rect x="4" y="4" width="92" height="92" rx="6" fill="#fff" stroke="#d32f2f" stroke-width="6"/><circle cx="32" cy="50" r="14" fill="#d32f2f"/><circle cx="68" cy="50" r="14" fill="#d32f2f"/></svg>`,
+  solid: `<svg viewBox="0 0 100 100"><rect width="100" height="100" fill="#555b63"/><rect x="47" y="0" width="6" height="100" fill="#fff"/></svg>`,
+  dashed: `<svg viewBox="0 0 100 100"><rect width="100" height="100" fill="#555b63"/><rect x="47" y="4" width="6" height="22" fill="#fff"/><rect x="47" y="40" width="6" height="22" fill="#fff"/><rect x="47" y="76" width="6" height="22" fill="#fff"/></svg>`,
+};
+const shuffle = a => a.map(x => [Math.random(), x]).sort((p, q) => p[0] - q[0]).map(x => x[1]);
+
+const Test = {
+  st: null, timer: null,
+  start(mode) {
+    const list = mode === "exam" ? shuffle(QS).slice(0, 20) : shuffle(QS);
+    this.st = { mode, list, i: 0, ok: 0, err: 0, done: false, end: Date.now() + 25 * 60000 };
+    clearInterval(this.timer);
+    if (mode === "exam") this.timer = setInterval(() => this.tick(), 1000);
+    this.render();
+  },
+  tick() {
+    const left = Math.max(0, this.st.end - Date.now()), el = document.getElementById("time");
+    if (el) el.textContent = `${Math.floor(left / 60000)}:${String(Math.floor(left / 1000) % 60).padStart(2, "0")}`;
+    if (left === 0) this.finish("Vaqt tugadi");
+  },
+  render() {
+    const s = this.st, q = s.list[s.i];
+    app.innerHTML = `
+      <div class="top"><span>${s.i + 1} / ${s.list.length}</span>
+        <span>${s.mode === "exam" ? `⏱ <b id="time"></b> · ❌ ${s.err}/2` : `✅ ${s.ok} · ❌ ${s.err}`}</span></div>
+      <div class="bar"><i style="width:${s.i / s.list.length * 100}%"></i></div>
+      ${q.s ? `<div class="sign">${SIGN[q.s] || ""}</div>` : ""}
+      <h2>${q.q}</h2>
+      ${q.o.map((t, k) => `<button class="opt" onclick="Test.answer(${k})">${t}</button>`).join("")}
+      <div id="after"></div>
+      <button class="btn ghost" onclick="Test.quit()">Chiqish</button>`;
+    if (s.mode === "exam") this.tick();
+  },
+  answer(k) {
+    const s = this.st, q = s.list[s.i], b = document.querySelectorAll(".opt");
+    if (b[0].disabled) return;
+    b.forEach(x => x.disabled = true); b[q.a].classList.add("ok");
+    if (k === q.a) s.ok++; else { s.err++; b[k].classList.add("bad"); }
+    tg && tg.HapticFeedback && tg.HapticFeedback.notificationOccurred(k === q.a ? "success" : "error");
+    if (s.mode === "exam" && s.err > 2) return setTimeout(() => this.finish("2 tadan ko'p xato"), 800);
+    const last = s.i === s.list.length - 1;
+    document.getElementById("after").innerHTML = (s.mode === "practice" ? `<div class="explain">💡 ${q.e}</div>` : "") +
+      `<button class="btn" onclick="Test.next()">${last ? "Natija" : "Keyingisi →"}</button>`;
+  },
+  next() { const s = this.st; if (s.i === s.list.length - 1) return this.finish(); s.i++; this.render(); },
+  quit() { clearInterval(this.timer); home(); },
+  async finish(reason) {
+    const s = this.st; if (s.done) return; s.done = true; clearInterval(this.timer);
+    const exam = s.mode === "exam", pass = exam && !reason && s.err <= 2;
+    if (exam) { try { ME = await api("/api/result", { kind: "test", score: s.ok }); } catch (e) {} }
+    app.innerHTML = `
+      <h1>${exam ? (pass ? "🎉 Imtihondan o'tdingiz!" : "😕 O'ta olmadingiz") : "Mashq tugadi"}</h1>
+      ${reason ? `<p>Sabab: ${reason}</p>` : ""}
+      <div class="big">${s.ok} / ${s.list.length}</div>
+      <div class="stats"><div class="stat"><b>${s.ok}</b>to'g'ri</div><div class="stat"><b>${s.err}</b>xato</div></div>
+      <button class="btn" onclick="Test.start('${s.mode}')">Qaytadan</button>
+      <button class="btn ghost" onclick="home()">Bosh sahifa</button>`;
+  },
+};
+
+// ================= AVTODROM =================
+// Dunyo o'lchami 400x800. Mashina pastdan boshlaydi va 3 ta mashqni bajaradi.
+const W = 400, H = 800;
+const CONES = [{ x: 200, y: 640, side: "L" }, { x: 200, y: 520, side: "R" }, { x: 200, y: 400, side: "L" }];
+const STOP = { y: 250, zone: 50 };       // to'xtash chizig'i: mashina oldi y 250..300 oralig'ida to'xtashi kerak
+const GARAGE = { x: 160, y: 50, w: 80, h: 100 };
+const ROAD = { x1: 90, x2: 310 };
+const PEN_LIMIT = 5;
+
+const Drive = {
+  run: false, keys: {}, last: 0, scale: 1,
+  start() {
+    document.getElementById("game").style.display = "block";
+    this.car = { x: 200, y: 740, h: 0, v: 0, steer: 0 };
+    this.t = 0; this.pen = 0; this.step = 0; this.cones = CONES.map(c => ({ ...c, hit: false, passed: false }));
+    this.stopped = false; this.slalomOk = true; this.msgT = 0; this.keys = {};
+    this.resize(); this.run = true; this.last = performance.now(); const gen = this.gen = (this.gen || 0) + 1;
+    this.say("1-mashq: \"Ilon\" — konuslarni navbat bilan chap/o'ngdan aylanib o'ting");
+    requestAnimationFrame(t => this.loop(t, gen));
+  },
+  resize() {
+    const cv = document.getElementById("cv"), sw = innerWidth, sh = innerHeight;
+    this.scale = Math.min(sw / W, sh / H); cv.width = W * this.scale * devicePixelRatio; cv.height = H * this.scale * devicePixelRatio;
+    cv.style.width = W * this.scale + "px"; cv.style.height = H * this.scale + "px";
+  },
+  say(t) { const m = document.getElementById("hMsg"); m.textContent = t; m.style.display = "block"; this.msgT = 3.5; },
+  penalty(p, why) { this.pen += p; (this.log = this.log || []).push(why); this.say(`⚠️ ${why} (+${p})`); tg && tg.HapticFeedback && tg.HapticFeedback.notificationOccurred("warning");
+    if (this.pen > PEN_LIMIT) this.end(false, "Jarima ballari limitdan oshdi"); },
+  loop(now, gen) {
+    if (!this.run || gen !== this.gen) return;
+    const dt = Math.min(0.05, (now - this.last) / 1000); this.last = now;
+    this.update(dt); this.draw();
+    requestAnimationFrame(t => this.loop(t, gen));
+  },
+  update(dt) {
+    const c = this.car, k = this.keys;
+    this.t += dt;
+    if (this.msgT > 0 && (this.msgT -= dt) <= 0) document.getElementById("hMsg").style.display = "none";
+    // boshqaruv
+    if (k.gas) c.v = Math.min(110, c.v + (c.v < 0 ? 260 : 90) * dt);
+    else if (k.brake) c.v = c.v > 0 ? Math.max(0, c.v - 220 * dt) : Math.max(-45, c.v - 60 * dt);
+    else c.v *= Math.pow(0.35, dt);
+    if (Math.abs(c.v) < 0.5 && !k.gas && !k.brake) c.v = 0;
+    const target = k.left ? -0.6 : k.right ? 0.6 : 0;
+    c.steer += (target - c.steer) * Math.min(1, dt * 8);
+    c.h += (c.v / 40) * Math.tan(c.steer) * dt;
+    c.x += Math.sin(c.h) * c.v * dt; c.y -= Math.cos(c.h) * c.v * dt;
+    // mashina oldi nuqtasi
+    const fx = c.x + Math.sin(c.h) * 22, fy = c.y - Math.cos(c.h) * 22;
+    // yo'ldan chiqish
+    const inGarageArea = c.y < GARAGE.y + GARAGE.h + 30;
+    if (c.x < ROAD.x1 + 12 || c.x > ROAD.x2 - 12 || c.y > H - 10 || (c.y < 30)) return this.end(false, "Mashina maydondan chiqib ketdi");
+    // 1) ilon
+    for (const cone of this.cones) {
+      if (!cone.hit && Math.hypot(cone.x - c.x, cone.y - c.y) < 20) { cone.hit = true; this.penalty(3, "Konusni urib yubordingiz"); }
+      if (!cone.passed && c.y < cone.y) {
+        cone.passed = true;
+        const ok = cone.side === "L" ? c.x < cone.x : c.x > cone.x;
+        if (!ok) { this.slalomOk = false; this.penalty(3, `Konusni ${cone.side === "L" ? "chap" : "o'ng"} tomondan aylanish kerak edi`); }
+      }
+    }
+    if (this.step === 0 && this.cones.every(x => x.passed)) { this.step = 1; this.say("2-mashq: yashil zonada to'liq to'xtang"); }
+    // 2) to'xtash chizig'i
+    if (this.step === 1) {
+      if (!this.stopped && c.v === 0 && fy <= STOP.y + STOP.zone && fy >= STOP.y) { this.stopped = true; this.say("✅ To'xtadingiz. 3-mashq: garajga kiring va to'xtang"); }
+      if (fy < STOP.y && !this.stopped) { this.stopped = true; this.penalty(3, "To'xtash chizig'idan to'xtamay o'tib ketdingiz"); this.say("3-mashq: garajga kiring va to'xtang"); }
+      if (this.stopped) this.step = 2;
+    }
+    // 3) garaj
+    if (this.step === 2) {
+      const corners = this.corners();
+      const inside = corners.every(([x, y]) => x > GARAGE.x && x < GARAGE.x + GARAGE.w && y > GARAGE.y && y < GARAGE.y + GARAGE.h);
+      const hitWall = inGarageArea && corners.some(([x, y]) => y < GARAGE.y + GARAGE.h && y > GARAGE.y - 4 &&
+        (Math.abs(x - GARAGE.x) < 3 || Math.abs(x - GARAGE.x - GARAGE.w) < 3 || y < GARAGE.y + 2));
+      if (hitWall && !this.wallHit) { this.wallHit = true; this.penalty(3, "Garaj devoriga tegdingiz"); }
+      if (!hitWall) this.wallHit = false;
+      if (inside && c.v === 0) return this.end(true);
+    }
+    if (this.t > 150) this.end(false, "Vaqt tugadi (150 s)");
+    document.getElementById("hTime").textContent = `⏱ ${this.t.toFixed(1)}`;
+    document.getElementById("hStep").textContent = `${Math.min(this.step + 1, 3)}/3`;
+    document.getElementById("hPen").textContent = `Jarima: ${this.pen}/${PEN_LIMIT}`;
+  },
+  corners() {
+    const c = this.car, s = Math.sin(c.h), co = Math.cos(c.h);
+    return [[-12, -22], [12, -22], [12, 22], [-12, 22]].map(([dx, dy]) => [c.x + dx * co - dy * s, c.y + dx * s + dy * co]);
+  },
+  draw() {
+    const cv = document.getElementById("cv"), g = cv.getContext("2d"), k = this.scale * devicePixelRatio;
+    g.setTransform(k, 0, 0, k, 0, 0);
+    g.fillStyle = "#3b8f3f"; g.fillRect(0, 0, W, H);
+    g.fillStyle = "#5c6168"; g.fillRect(ROAD.x1, 30, ROAD.x2 - ROAD.x1, H - 30);
+    g.fillStyle = "#fff"; g.fillRect(ROAD.x1, 30, 4, H); g.fillRect(ROAD.x2 - 4, 30, 4, H);
+    // start
+    g.fillStyle = "rgba(255,255,255,.5)"; g.fillRect(ROAD.x1, 765, ROAD.x2 - ROAD.x1, 4);
+    g.font = "bold 14px Arial"; g.fillStyle = "#fff"; g.fillText("START", 175, 790);
+    // ilon strelkalari
+    this.cones.forEach(cn => {
+      g.fillStyle = "rgba(255,255,255,.35)"; g.font = "bold 22px Arial";
+      g.fillText(cn.side === "L" ? "◀" : "▶", cn.side === "L" ? cn.x - 70 : cn.x + 50, cn.y + 8);
+      g.beginPath(); g.moveTo(cn.x, cn.y - 11); g.lineTo(cn.x + 9, cn.y + 9); g.lineTo(cn.x - 9, cn.y + 9); g.closePath();
+      g.fillStyle = cn.hit ? "#7a4a2a" : "#ff6d00"; g.fill(); g.fillStyle = "#fff"; g.fillRect(cn.x - 5, cn.y - 1, 10, 3);
+    });
+    // to'xtash zonasi
+    g.fillStyle = "rgba(76,175,80,.45)"; g.fillRect(ROAD.x1 + 4, STOP.y, ROAD.x2 - ROAD.x1 - 8, STOP.zone);
+    g.fillStyle = "#fff"; g.fillRect(ROAD.x1 + 4, STOP.y - 4, ROAD.x2 - ROAD.x1 - 8, 5);
+    g.fillStyle = "#d32f2f"; g.font = "bold 13px Arial"; g.fillText("STOP", ROAD.x2 - 50, STOP.y - 10);
+    // garaj
+    g.fillStyle = "#8d6e63"; g.fillRect(GARAGE.x - 6, GARAGE.y - 6, GARAGE.w + 12, 6);
+    g.fillRect(GARAGE.x - 6, GARAGE.y - 6, 6, GARAGE.h + 6); g.fillRect(GARAGE.x + GARAGE.w, GARAGE.y - 6, 6, GARAGE.h + 6);
+    g.strokeStyle = "rgba(255,255,255,.6)"; g.setLineDash([6, 6]); g.strokeRect(GARAGE.x, GARAGE.y, GARAGE.w, GARAGE.h); g.setLineDash([]);
+    g.fillStyle = "#fff"; g.font = "bold 13px Arial"; g.fillText("GARAJ", GARAGE.x + 13, GARAGE.y + 55);
+    // mashina
+    const c = this.car;
+    g.save(); g.translate(c.x, c.y); g.rotate(c.h);
+    g.fillStyle = "#1e88e5"; g.beginPath(); g.roundRect ? g.roundRect(-12, -22, 24, 44, 6) : g.rect(-12, -22, 24, 44); g.fill();
+    g.fillStyle = "#bbdefb"; g.fillRect(-9, -14, 18, 9); g.fillRect(-9, 8, 18, 6);
+    g.fillStyle = "#ffeb3b"; g.fillRect(-10, -22, 5, 3); g.fillRect(5, -22, 5, 3);
+    if (this.keys.brake) { g.fillStyle = "#ff1744"; g.fillRect(-10, 19, 5, 3); g.fillRect(5, 19, 5, 3); }
+    g.restore();
+  },
+  async end(passed, reason) {
+    if (!this.run) return; this.run = false;
+    const time = Math.round(this.t);
+    if (passed) { try { ME = await api("/api/result", { kind: "drive", passed: true, time }); } catch (e) {} }
+    document.getElementById("game").style.display = "none";
+    app.innerHTML = `
+      <h1>${passed ? "🎉 Avtodromdan o'tdingiz!" : "😕 Avtodromdan o'ta olmadingiz"}</h1>
+      ${reason ? `<p>Sabab: ${reason}</p>` : ""}
+      <div class="stats"><div class="stat"><b>${time} s</b>vaqt</div><div class="stat"><b>${this.pen}</b>jarima ballari</div></div>
+      <p>O'tish sharti: barcha mashqlarni bajarish va ${PEN_LIMIT} tadan ko'p jarima olmaslik.</p>
+      <button class="btn" onclick="Drive.start()">Qaytadan</button>
+      <button class="btn ghost" onclick="home()">Bosh sahifa</button>`;
+  },
+  stop() { this.run = false; document.getElementById("game").style.display = "none"; home(); },
+};
+
+// boshqaruv: sensorli tugmalar va klaviatura
+document.querySelectorAll(".pad button").forEach(b => {
+  const k = b.dataset.k, on = e => { e.preventDefault(); Drive.keys[k] = true; b.classList.add("on"); },
+    off = e => { e.preventDefault(); Drive.keys[k] = false; b.classList.remove("on"); };
+  b.addEventListener("pointerdown", on); b.addEventListener("pointerup", off);
+  b.addEventListener("pointerleave", off); b.addEventListener("pointercancel", off);
+});
+const KEYMAP = { ArrowUp: "gas", ArrowDown: "brake", ArrowLeft: "left", ArrowRight: "right" };
+addEventListener("keydown", e => { if (KEYMAP[e.key]) Drive.keys[KEYMAP[e.key]] = true; });
+addEventListener("keyup", e => { if (KEYMAP[e.key]) Drive.keys[KEYMAP[e.key]] = false; });
+addEventListener("resize", () => Drive.run && Drive.resize());
+
+load();
+</script>
+</body>
+</html>
