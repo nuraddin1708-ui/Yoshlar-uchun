@@ -1,6 +1,21 @@
 # Prava Mashq — Telegram bot
 
-Telegram bot va uning ichida ochiladigan Mini App: **avtodrom o'yini** (ilon, to'xtash chizig'i, garaj) va **yo'l harakati qoidalari testi**.
+Telegram bot va uning ichida ochiladigan Mini App: **3D avtodrom** va **yo'l harakati qoidalari testi**.
+
+![3D avtodrom](avtodrom-3d.png)
+
+## 3D avtodrom
+
+- **Mashinalar:** Cobalt, Nexia, Spark, Damas (past poligonli 3D modellar, logotipsiz).
+- **Mashqlar:**
+  1. "Ilon": konuslarni navbat bilan chap va o'ng tomondan aylanib o'tish;
+  2. estakada: qiyalikka chiqib, sariq zonada to'xtash va orqaga ketmasdan yo'lda davom etish;
+  3. garajga **orqa bilan** kirib to'xtash.
+- **Jarimalar:** konusga urilish, noto'g'ri tomondan o'tish, sariq zonada to'xtamaslik, qiyalikda orqaga ketish, garaj to'sig'iga tegish (har biri +3). 5 balldan oshsa — o'tmadi. Maydondan yoki estakadadan chiqib ketish — darhol o'tmadi.
+- **Boshqaruv:** ◀ ▶ rul, ▲ gaz, ⏹ tormoz, R orqaga yurish, 🎥 kamera (orqadan, tepadan, kabinadan). Kompyuterda: strelkalar va probel.
+- 3D grafika Three.js (MIT litsenziyasi) yordamida chiziladi. Kutubxona `webapp/vendor/` ichida, internetdan yuklanmaydi.
+
+> ⚠️ Mashina nomlari (Cobalt, Nexia, Spark, Damas) GM va UzAuto Motors'ning savdo belgilari. Pullik mahsulotda ishlatishdan oldin huquqiy maslahat oling yoki nomlarni umumiy nomlarga almashtiring (`webapp/avtodrom3d.js` dagi `CARS`).
 
 ## Imkoniyatlar
 
@@ -52,6 +67,7 @@ Savollar `questions.json` faylida. Har bir savol:
 ## Fayllar
 
 - `app.py` — bot, to'lov va Mini App uchun server (API)
-- `webapp/index.html` — Mini App: avtodrom va test
+- `webapp/index.html` — Mini App: bosh sahifa va test
+- `webapp/avtodrom3d.js` — 3D avtodrom
 - `questions.json` — savollar bazasi
 - `users.db` — foydalanuvchilar va to'lovlar (avtomatik yaratiladi, zaxira nusxasini saqlang)

@@ -39,14 +39,15 @@
   .badge { display: inline-block; padding: 3px 10px; border-radius: 99px; font-size: 13px; background: rgba(26,156,85,.15); color: var(--ok); }
   /* avtodrom */
   #game { position: fixed; inset: 0; background: #2e7d32; display: none; touch-action: none; user-select: none; }
-  #cv { display: block; margin: 0 auto; }
+  #cv { display: block; }
+  .cam { position: absolute; top: 36px; left: 8px; background: rgba(0,0,0,.5); color: #fff; padding: 6px 10px; font-size: 16px; }
   .hud { position: absolute; top: 8px; left: 8px; right: 8px; display: flex; justify-content: space-between; color: #fff;
     font-weight: 700; text-shadow: 0 1px 3px #000; font-size: 15px; pointer-events: none; }
   .msg { position: absolute; top: 70px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,.65); color: #fff;
     padding: 8px 14px; border-radius: 10px; font-size: 14px; width: max-content; max-width: 86%; text-align: center; display: none; }
   .pad { position: absolute; bottom: 14px; display: flex; gap: 10px; }
   .pad.l { left: 12px; } .pad.r { right: 12px; }
-  .pad button { width: 70px; height: 70px; border-radius: 50%; background: rgba(255,255,255,.85); font-size: 28px; color: #222; }
+  .pad button { width: 64px; height: 64px; font-weight: 700; border-radius: 50%; background: rgba(255,255,255,.85); font-size: 28px; color: #222; }
   .pad button.on { background: #ffd54f; }
   .exit { position: absolute; top: 36px; right: 8px; background: rgba(0,0,0,.5); color: #fff; padding: 6px 10px; font-size: 13px; }
 </style>
@@ -59,8 +60,9 @@
   <div class="hud"><span id="hTime">⏱ 0.0</span><span id="hStep">1/3</span><span id="hPen">Jarima: 0</span></div>
   <div class="msg" id="hMsg"></div>
   <button class="exit" onclick="Drive.stop(true)">✕ Chiqish</button>
+  <button class="cam" onclick="Drive.toggleCam()">🎥</button>
   <div class="pad l"><button data-k="left">◀</button><button data-k="right">▶</button></div>
-  <div class="pad r"><button data-k="brake">⏹</button><button data-k="gas">▲</button></div>
+  <div class="pad r"><button data-k="reverse">R</button><button data-k="brake">⏹</button><button data-k="gas">▲</button></div>
 </div>
 
 <script>
@@ -88,8 +90,8 @@ function home() {
   app.innerHTML = `
     <h1>🚗 Prava Mashq</h1>
     <p>Salom, ${ME.name || "do'st"}! ${ME.paid ? `<span class="badge">To'liq versiya</span>` : ""}</p>
-    <button class="tile" onclick="Drive.start()"><span class="ic">🏁</span><div><b>Avtodrom</b>
-      <span>Ilon, to'xtash chizig'i va garajga kirish mashqlari</span></div></button>
+    <button class="tile" onclick="carSelect()"><span class="ic">🏁</span><div><b>Avtodrom</b>
+      <span>3D: ilon, estakada, garajga orqa bilan kirish</span></div></button>
     <button class="tile" onclick="Test.start('practice')"><span class="ic">📘</span><div><b>Mashq testi</b>
       <span>${QS.length} ta savol, izohlar bilan</span></div></button>
     <button class="tile" onclick="${ME.paid ? "Test.start('exam')" : "buy()"}"><span class="ic">⏱</span><div><b>Imtihon ${ME.paid ? "" : "🔒"}</b>
@@ -179,142 +181,30 @@ const Test = {
   },
 };
 
-// ================= AVTODROM =================
-// Dunyo o'lchami 400x800. Mashina pastdan boshlaydi va 3 ta mashqni bajaradi.
-const W = 400, H = 800;
-const CONES = [{ x: 200, y: 640, side: "L" }, { x: 200, y: 520, side: "R" }, { x: 200, y: 400, side: "L" }];
-const STOP = { y: 250, zone: 50 };       // to'xtash chizig'i: mashina oldi y 250..300 oralig'ida to'xtashi kerak
-const GARAGE = { x: 160, y: 50, w: 80, h: 100 };
-const ROAD = { x1: 90, x2: 310 };
-const PEN_LIMIT = 5;
-
-const Drive = {
-  run: false, keys: {}, last: 0, scale: 1,
-  start() {
-    document.getElementById("game").style.display = "block";
-    this.car = { x: 200, y: 740, h: 0, v: 0, steer: 0 };
-    this.t = 0; this.pen = 0; this.step = 0; this.cones = CONES.map(c => ({ ...c, hit: false, passed: false }));
-    this.stopped = false; this.slalomOk = true; this.msgT = 0; this.keys = {};
-    this.resize(); this.run = true; this.last = performance.now(); const gen = this.gen = (this.gen || 0) + 1;
-    this.say("1-mashq: \"Ilon\" — konuslarni navbat bilan chap/o'ngdan aylanib o'ting");
-    requestAnimationFrame(t => this.loop(t, gen));
-  },
-  resize() {
-    const cv = document.getElementById("cv"), sw = innerWidth, sh = innerHeight;
-    this.scale = Math.min(sw / W, sh / H); cv.width = W * this.scale * devicePixelRatio; cv.height = H * this.scale * devicePixelRatio;
-    cv.style.width = W * this.scale + "px"; cv.style.height = H * this.scale + "px";
-  },
-  say(t) { const m = document.getElementById("hMsg"); m.textContent = t; m.style.display = "block"; this.msgT = 3.5; },
-  penalty(p, why) { this.pen += p; (this.log = this.log || []).push(why); this.say(`⚠️ ${why} (+${p})`); tg && tg.HapticFeedback && tg.HapticFeedback.notificationOccurred("warning");
-    if (this.pen > PEN_LIMIT) this.end(false, "Jarima ballari limitdan oshdi"); },
-  loop(now, gen) {
-    if (!this.run || gen !== this.gen) return;
-    const dt = Math.min(0.05, (now - this.last) / 1000); this.last = now;
-    this.update(dt); this.draw();
-    requestAnimationFrame(t => this.loop(t, gen));
-  },
-  update(dt) {
-    const c = this.car, k = this.keys;
-    this.t += dt;
-    if (this.msgT > 0 && (this.msgT -= dt) <= 0) document.getElementById("hMsg").style.display = "none";
-    // boshqaruv
-    if (k.gas) c.v = Math.min(110, c.v + (c.v < 0 ? 260 : 90) * dt);
-    else if (k.brake) c.v = c.v > 0 ? Math.max(0, c.v - 220 * dt) : Math.max(-45, c.v - 60 * dt);
-    else c.v *= Math.pow(0.35, dt);
-    if (Math.abs(c.v) < 0.5 && !k.gas && !k.brake) c.v = 0;
-    const target = k.left ? -0.6 : k.right ? 0.6 : 0;
-    c.steer += (target - c.steer) * Math.min(1, dt * 8);
-    c.h += (c.v / 40) * Math.tan(c.steer) * dt;
-    c.x += Math.sin(c.h) * c.v * dt; c.y -= Math.cos(c.h) * c.v * dt;
-    // mashina oldi nuqtasi
-    const fx = c.x + Math.sin(c.h) * 22, fy = c.y - Math.cos(c.h) * 22;
-    // yo'ldan chiqish
-    const inGarageArea = c.y < GARAGE.y + GARAGE.h + 30;
-    if (c.x < ROAD.x1 + 12 || c.x > ROAD.x2 - 12 || c.y > H - 10 || (c.y < 30)) return this.end(false, "Mashina maydondan chiqib ketdi");
-    // 1) ilon
-    for (const cone of this.cones) {
-      if (!cone.hit && Math.hypot(cone.x - c.x, cone.y - c.y) < 20) { cone.hit = true; this.penalty(3, "Konusni urib yubordingiz"); }
-      if (!cone.passed && c.y < cone.y) {
-        cone.passed = true;
-        const ok = cone.side === "L" ? c.x < cone.x : c.x > cone.x;
-        if (!ok) { this.slalomOk = false; this.penalty(3, `Konusni ${cone.side === "L" ? "chap" : "o'ng"} tomondan aylanish kerak edi`); }
-      }
-    }
-    if (this.step === 0 && this.cones.every(x => x.passed)) { this.step = 1; this.say("2-mashq: yashil zonada to'liq to'xtang"); }
-    // 2) to'xtash chizig'i
-    if (this.step === 1) {
-      if (!this.stopped && c.v === 0 && fy <= STOP.y + STOP.zone && fy >= STOP.y) { this.stopped = true; this.say("✅ To'xtadingiz. 3-mashq: garajga kiring va to'xtang"); }
-      if (fy < STOP.y && !this.stopped) { this.stopped = true; this.penalty(3, "To'xtash chizig'idan to'xtamay o'tib ketdingiz"); this.say("3-mashq: garajga kiring va to'xtang"); }
-      if (this.stopped) this.step = 2;
-    }
-    // 3) garaj
-    if (this.step === 2) {
-      const corners = this.corners();
-      const inside = corners.every(([x, y]) => x > GARAGE.x && x < GARAGE.x + GARAGE.w && y > GARAGE.y && y < GARAGE.y + GARAGE.h);
-      const hitWall = inGarageArea && corners.some(([x, y]) => y < GARAGE.y + GARAGE.h && y > GARAGE.y - 4 &&
-        (Math.abs(x - GARAGE.x) < 3 || Math.abs(x - GARAGE.x - GARAGE.w) < 3 || y < GARAGE.y + 2));
-      if (hitWall && !this.wallHit) { this.wallHit = true; this.penalty(3, "Garaj devoriga tegdingiz"); }
-      if (!hitWall) this.wallHit = false;
-      if (inside && c.v === 0) return this.end(true);
-    }
-    if (this.t > 150) this.end(false, "Vaqt tugadi (150 s)");
-    document.getElementById("hTime").textContent = `⏱ ${this.t.toFixed(1)}`;
-    document.getElementById("hStep").textContent = `${Math.min(this.step + 1, 3)}/3`;
-    document.getElementById("hPen").textContent = `Jarima: ${this.pen}/${PEN_LIMIT}`;
-  },
-  corners() {
-    const c = this.car, s = Math.sin(c.h), co = Math.cos(c.h);
-    return [[-12, -22], [12, -22], [12, 22], [-12, 22]].map(([dx, dy]) => [c.x + dx * co - dy * s, c.y + dx * s + dy * co]);
-  },
-  draw() {
-    const cv = document.getElementById("cv"), g = cv.getContext("2d"), k = this.scale * devicePixelRatio;
-    g.setTransform(k, 0, 0, k, 0, 0);
-    g.fillStyle = "#3b8f3f"; g.fillRect(0, 0, W, H);
-    g.fillStyle = "#5c6168"; g.fillRect(ROAD.x1, 30, ROAD.x2 - ROAD.x1, H - 30);
-    g.fillStyle = "#fff"; g.fillRect(ROAD.x1, 30, 4, H); g.fillRect(ROAD.x2 - 4, 30, 4, H);
-    // start
-    g.fillStyle = "rgba(255,255,255,.5)"; g.fillRect(ROAD.x1, 765, ROAD.x2 - ROAD.x1, 4);
-    g.font = "bold 14px Arial"; g.fillStyle = "#fff"; g.fillText("START", 175, 790);
-    // ilon strelkalari
-    this.cones.forEach(cn => {
-      g.fillStyle = "rgba(255,255,255,.35)"; g.font = "bold 22px Arial";
-      g.fillText(cn.side === "L" ? "◀" : "▶", cn.side === "L" ? cn.x - 70 : cn.x + 50, cn.y + 8);
-      g.beginPath(); g.moveTo(cn.x, cn.y - 11); g.lineTo(cn.x + 9, cn.y + 9); g.lineTo(cn.x - 9, cn.y + 9); g.closePath();
-      g.fillStyle = cn.hit ? "#7a4a2a" : "#ff6d00"; g.fill(); g.fillStyle = "#fff"; g.fillRect(cn.x - 5, cn.y - 1, 10, 3);
-    });
-    // to'xtash zonasi
-    g.fillStyle = "rgba(76,175,80,.45)"; g.fillRect(ROAD.x1 + 4, STOP.y, ROAD.x2 - ROAD.x1 - 8, STOP.zone);
-    g.fillStyle = "#fff"; g.fillRect(ROAD.x1 + 4, STOP.y - 4, ROAD.x2 - ROAD.x1 - 8, 5);
-    g.fillStyle = "#d32f2f"; g.font = "bold 13px Arial"; g.fillText("STOP", ROAD.x2 - 50, STOP.y - 10);
-    // garaj
-    g.fillStyle = "#8d6e63"; g.fillRect(GARAGE.x - 6, GARAGE.y - 6, GARAGE.w + 12, 6);
-    g.fillRect(GARAGE.x - 6, GARAGE.y - 6, 6, GARAGE.h + 6); g.fillRect(GARAGE.x + GARAGE.w, GARAGE.y - 6, 6, GARAGE.h + 6);
-    g.strokeStyle = "rgba(255,255,255,.6)"; g.setLineDash([6, 6]); g.strokeRect(GARAGE.x, GARAGE.y, GARAGE.w, GARAGE.h); g.setLineDash([]);
-    g.fillStyle = "#fff"; g.font = "bold 13px Arial"; g.fillText("GARAJ", GARAGE.x + 13, GARAGE.y + 55);
-    // mashina
-    const c = this.car;
-    g.save(); g.translate(c.x, c.y); g.rotate(c.h);
-    g.fillStyle = "#1e88e5"; g.beginPath(); g.roundRect ? g.roundRect(-12, -22, 24, 44, 6) : g.rect(-12, -22, 24, 44); g.fill();
-    g.fillStyle = "#bbdefb"; g.fillRect(-9, -14, 18, 9); g.fillRect(-9, 8, 18, 6);
-    g.fillStyle = "#ffeb3b"; g.fillRect(-10, -22, 5, 3); g.fillRect(5, -22, 5, 3);
-    if (this.keys.brake) { g.fillStyle = "#ff1744"; g.fillRect(-10, 19, 5, 3); g.fillRect(5, 19, 5, 3); }
-    g.restore();
-  },
-  async end(passed, reason) {
-    if (!this.run) return; this.run = false;
-    const time = Math.round(this.t);
-    if (passed) { try { ME = await api("/api/result", { kind: "drive", passed: true, time }); } catch (e) {} }
-    document.getElementById("game").style.display = "none";
-    app.innerHTML = `
-      <h1>${passed ? "🎉 Avtodromdan o'tdingiz!" : "😕 Avtodromdan o'ta olmadingiz"}</h1>
-      ${reason ? `<p>Sabab: ${reason}</p>` : ""}
-      <div class="stats"><div class="stat"><b>${time} s</b>vaqt</div><div class="stat"><b>${this.pen}</b>jarima ballari</div></div>
-      <p>O'tish sharti: barcha mashqlarni bajarish va ${PEN_LIMIT} tadan ko'p jarima olmaslik.</p>
-      <button class="btn" onclick="Drive.start()">Qaytadan</button>
-      <button class="btn ghost" onclick="home()">Bosh sahifa</button>`;
-  },
-  stop() { this.run = false; document.getElementById("game").style.display = "none"; home(); },
-};
+// ================= AVTODROM (3D — avtodrom3d.js) =================
+window.setMe = x => { ME = x; };
+function carSelect() {
+  if (!window.Drive) { app.innerHTML = `<p>3D avtodrom yuklanmoqda...</p>`; return setTimeout(carSelect, 400); }
+  app.innerHTML = `
+    <h1>🏁 Avtodrom</h1>
+    <p>Mashinani tanlang. Mashqlar: "ilon", estakadada to'xtab yurish, garajga orqa bilan kirish.</p>
+    ${Object.entries(CARS).map(([id, c]) => `<button class="tile" onclick="Drive.start('${id}')">
+      <span class="ic" style="width:34px;height:22px;border-radius:6px;background:#${c.color.toString(16).padStart(6, "0")};border:1px solid #888"></span>
+      <div><b>${c.name}</b><span>${c.len} m · ${id === "damas" ? "miniven" : id === "spark" ? "xetchbek" : "sedan"}</span></div></button>`).join("")}
+    <div class="explain">🎮 <b>Boshqaruv:</b> ◀ ▶ — rul, ▲ — gaz, ⏹ — tormoz, R — orqaga yurish, 🎥 — kamera (orqadan / tepadan / kabinadan).
+      Telefonni gorizontal ushlash qulayroq.</div>
+    <button class="btn ghost" onclick="home()">Orqaga</button>`;
+}
+function showDriveResult(passed, reason, time, pen, limit) {
+  app.innerHTML = `
+    <h1>${passed ? "🎉 Avtodromdan o'tdingiz!" : "😕 Avtodromdan o'ta olmadingiz"}</h1>
+    ${reason ? `<p>Sabab: ${reason}</p>` : ""}
+    <div class="stats"><div class="stat"><b>${time} s</b>vaqt</div><div class="stat"><b>${pen}</b>jarima ballari</div></div>
+    <p>O'tish sharti: uchala mashqni bajarish va ${limit} tadan ko'p jarima olmaslik.</p>
+    <button class="btn" onclick="Drive.start()">Qaytadan</button>
+    <button class="btn ghost" onclick="carSelect()">Boshqa mashina</button>
+    <button class="btn ghost" onclick="home()">Bosh sahifa</button>`;
+}
 
 // boshqaruv: sensorli tugmalar va klaviatura
 document.querySelectorAll(".pad button").forEach(b => {
@@ -323,12 +213,12 @@ document.querySelectorAll(".pad button").forEach(b => {
   b.addEventListener("pointerdown", on); b.addEventListener("pointerup", off);
   b.addEventListener("pointerleave", off); b.addEventListener("pointercancel", off);
 });
-const KEYMAP = { ArrowUp: "gas", ArrowDown: "brake", ArrowLeft: "left", ArrowRight: "right" };
+const KEYMAP = { ArrowUp: "gas", ArrowDown: "reverse", " ": "brake", ArrowLeft: "left", ArrowRight: "right" };
 addEventListener("keydown", e => { if (KEYMAP[e.key]) Drive.keys[KEYMAP[e.key]] = true; });
 addEventListener("keyup", e => { if (KEYMAP[e.key]) Drive.keys[KEYMAP[e.key]] = false; });
-addEventListener("resize", () => Drive.run && Drive.resize());
 
 load();
 </script>
+<script type="module" src="avtodrom3d.js"></script>
 </body>
 </html>
