@@ -3,6 +3,7 @@
 import * as THREE from "three";
 import { GLTFLoader } from "./vendor/jsm/loaders/GLTFLoader.js";
 import { MeshoptDecoder } from "./vendor/jsm/libs/meshopt_decoder.module.js";
+import { Sky } from "./vendor/jsm/objects/Sky.js";
 
 // ---------- MASHINALAR (past poligonli, logotipsiz) ----------
 // O'lchamlar (metr) ishlab chiqaruvchi va ma'lumotnoma saytlaridagi qiymatlar bo'yicha: uzunlik, kenglik, o'q oralig'i.
@@ -201,7 +202,10 @@ function makeCourse(spec) {
     paint(f, c => { D_.bar(c, -RW / 2, 0, RW / 2, 0.4, WHT); D_.dashU(c, -RW / 2, RW / 2, 10, 0.15, YEL); D_.text(c, "START", -RW / 2 - 1.9, 0.6, 0.8, WHT, -Math.PI / 2); });
     sign(f, RW / 2 + 0.8, 10, ["3.24-20"]);
     pts(f, [[0, 0], [0, 12]]); P = adv(f, 0, 12);
-    exitAt(M({ id: "start", name: "Harakatni boshlash (START)" }), P); }
+    exitAt(M({ id: "start", name: "Harakatni boshlash (START)", tick(d) {   // YHQ 45-band: harakatni boshlashdan oldin ishora
+      const st = this.st; if (d.ctl.sigL) st.sig = true;
+      if (!st.moved && Math.abs(d.car.v) > 0.3) { st.moved = true; if (!st.sig) d.err("45-band: harakatni boshlashdan oldin chap burilish chirog'ini yoqmadingiz"); }
+    } }), P); }
 
   // 2. Piyodalar o'tish joyi — 14-band (5.16 belgilari, 1.14.1 chizig'i)
   { const f = P; rect(f, -RW / 2, RW / 2, 0, 10);
@@ -313,7 +317,10 @@ function makeCourse(spec) {
     for (let i = 0; i <= 10; i++) { const t = i / 10 * Math.PI / 2; arc.push([-rt + rt * Math.cos(t), sq1 + Rx - rt * Math.sin(t)]); }
     arc.push([-RW / 2 - Lw, sq0 + RW / 2]); pts(f, arc);
     M({ id: "cross2", name: "Harakat tartibga solingan chorraha (o'ngga burilish)", fe, tick(d) {
-      if (W2L(f, d.car.x, d.car.z)[1] < sq0 - 2) d.end(false, "Chorrahada o'ngga burilish kerak edi (marshrut)");
+      const st = this.st, [cu, cv] = W2L(f, d.car.x, d.car.z);
+      if (cv < sq0 - 2) return d.end(false, "Chorrahada o'ngga burilish kerak edi (marshrut)");
+      if (d.ctl.sigR && cv > sq0) st.sig = true;                      // YHQ 45-band: burilishdan oldin ishora
+      if (!st.chk && cu < -RW / 2 - 0.5) { st.chk = true; if (!st.sig) d.err("45-band: o'ngga burilishdan oldin o'ng burilish chirog'ini yoqmadingiz"); }
     } });
     P = fe;
   }
@@ -349,6 +356,11 @@ function makeCourse(spec) {
     M({ id: "park", name: "Orqaga harakatlanib parallel to'xtash (parkovka)", fe: P, f, a, Lp, edge, ctrlD, tick(d) {
       const st = this.st, cs = d.corners().map(([x, z]) => W2L(f, x, z)), dh = angDiff(d.car.h, f.h);
       const inside = cs.every(([u, v]) => u > RW / 2 && u < edge && v > a && v < a + Lp);
+      // YHQ 45-band: to'xtash joyiga kirishdan (to'xtashdan) oldin o'ng, chiqishdan (harakatni boshlashdan) oldin chap ishora
+      if (d.ctl.sigR) st.sigIn = true;
+      if (!st.chkIn && cs.some(([u, v]) => u > RW / 2 + 0.2 && v > a && v < a + Lp)) { st.chkIn = true; if (!st.sigIn) d.err("45-band: to'xtash joyiga kirishdan oldin o'ng burilish chirog'ini yoqmadingiz"); }
+      if (st.ok && d.ctl.sigL) st.sigOut = true;
+      if (st.ok && !st.chkOut && cs.every(([u]) => u < RW / 2)) { st.chkOut = true; if (!st.sigOut) d.err("45-band: to'xtash joyidan chiqishdan oldin chap burilish chirog'ini yoqmadingiz"); }
       if (!st.ok && inside && Math.abs(d.car.v) < 0.05 && Math.abs(dh) < 0.12) {
         const gap = edge - Math.max(...cs.map(c => c[0]));
         if (gap <= ctrlD) { st.ok = true; d.say("✅ Parkovka bajarildi. Endi yo'lga chiqib, davom eting"); }
@@ -402,7 +414,7 @@ function makeCourse(spec) {
       if (!st.trig && fv > 6 && (kmh >= 15 || fv > 24)) { st.trig = true; st.t0 = d.t; lampM.emissiveIntensity = 3; d.say("🛑 XAVF! Zudlik bilan to'xtang!");
         window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred("error");
         if (kmh < 15) { st.slow = true; d.err("Avariya mashqi uchun tezlik kamida 15 km/soat bo'lishi kerak"); } }
-      if (st.trig && !st.react && d.keys.brake) st.react = true;
+      if (st.trig && !st.react && d.brakeV > 0.3) st.react = true;
       if (st.trig && !st.react && !st.late && d.t - st.t0 > 1.0) { st.late = true; d.err("Avariya signalida kech tormoz berdingiz (1 soniyadan ko'p)"); }
       if (st.trig && !st.ok && Math.abs(d.car.v) < 0.05) { st.ok = true; lampM.emissiveIntensity = 0.05; d.say("✅ To'xtadingiz. Finishga boring"); }
       d.signal = st.trig && !st.ok;
@@ -481,22 +493,69 @@ function makeCourse(spec) {
     const t = new THREE.Group(); box(t, 0.3, 1.6, 0.3, 0, 0.8, 0, trunk);
     const lf = new THREE.Mesh(new THREE.ConeGeometry(1.4, 3.4, 8), leaf); lf.position.y = 3; t.add(lf); t.position.set(x, 0, z); root.add(t);
   }
+  // 3D bordyurlar: chiziqdan 0,15–0,45 m nariroqda, oq-qora bo'laklar
+  { const pts3 = [];
+    for (let y = 2; y < ch; y += 4) for (let x = 2; x < cw; x += 4) { const i = y * cw + x; if (!road01[i] && dOut[i] > 1.5 && dOut[i] <= 4.5) pts3.push([x, y]); }
+    const im = new THREE.InstancedMesh(new THREE.BoxGeometry(0.42, 0.14, 0.42), new THREE.MeshStandardMaterial({ roughness: 0.7 }), pts3.length);
+    const mtx = new THREE.Matrix4(), col = new THREE.Color();
+    pts3.forEach(([x, y], n) => { mtx.makeTranslation(X0 + x / PX, 0.07, Z0 + y / PX); im.setMatrixAt(n, mtx);
+      im.setColorAt(n, col.set(((x + y) / 10 | 0) % 2 ? 0xeeeeee : 0x2b2b2b)); });
+    im.castShadow = im.receiveShadow = true; root.add(im); }
+  // avtodrom panjarasi — balandligi 2,0 m (talablarning 9-bandi)
+  { const fc = document.createElement("canvas"); fc.width = fc.height = 64; const g = fc.getContext("2d");
+    g.strokeStyle = "#9aa4a8"; g.lineWidth = 3; for (let k = -64; k < 128; k += 16) { g.beginPath(); g.moveTo(k, 0); g.lineTo(k + 64, 64); g.moveTo(k + 64, 0); g.lineTo(k, 64); g.stroke(); }
+    const ft = new THREE.CanvasTexture(fc); ft.wrapS = ft.wrapT = THREE.RepeatWrapping;
+    const fx0 = X0 + 4, fx1 = X0 + cw / PX - 4, fz0 = Z0 + 4, fz1 = Z0 + ch / PX - 4, postM = mat(0x6f7a80);
+    const side = (ax, az, bx, bz) => { const len = Math.hypot(bx - ax, bz - az), t = ft.clone(); t.repeat.set(len / 1.2, 2 / 1.2); t.needsUpdate = true;
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(len, 2), new THREE.MeshStandardMaterial({ map: t, transparent: true, alphaTest: 0.3, side: THREE.DoubleSide }));
+      const fm = m.material; fm.alphaMap = null; m.position.set((ax + bx) / 2, 1, (az + bz) / 2); m.rotation.y = -Math.atan2(bz - az, bx - ax); root.add(m);
+      for (let k = 0; k <= len; k += 3) box(root, 0.08, 2.1, 0.08, ax + (bx - ax) * k / len, 1.05, az + (bz - az) * k / len, postM); };
+    ft.colorSpace = THREE.SRGBColorSpace;
+    { const c2 = document.createElement("canvas"); c2.width = c2.height = 64; const g2 = c2.getContext("2d"); g2.drawImage(fc, 0, 0);
+      // fon shaffof bo'lsin: faqat sim chiziqlari ko'rinadi
+      const id = g2.getImageData(0, 0, 64, 64); for (let q = 0; q < id.data.length; q += 4) id.data[q + 3] = id.data[q] > 0 ? 255 : 0; g2.putImageData(id, 0, 0); ft.image = c2; }
+    side(fx0, fz0, fx1, fz0); side(fx1, fz0, fx1, fz1); side(fx1, fz1, fx0, fz1); side(fx0, fz1, fx0, fz0); }
+  // chiroq ustunlari (tungi yoritgichlar — 14-band)
+  { const pm = mat(0x8a949a), lm = new THREE.MeshStandardMaterial({ color: 0xfffbe6, emissive: 0xfff3c4, emissiveIntensity: 0.6 });
+    for (let i = 6; i < path.length; i += 9) { const a = path[i], b = path[Math.min(i + 1, path.length - 1)], dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz) || 1;
+      const ox = a.x - dz / L * (RW / 2 + 1.6), oz = a.z + dx / L * (RW / 2 + 1.6);
+      if (nearRoad(ox, oz, 1)) continue;
+      box(root, 0.14, 6, 0.14, ox, 3, oz, pm); const arm = box(root, 0.08, 0.08, 1.4, ox, 5.95, oz, pm); arm.rotation.y = Math.atan2(-dz, dx) + Math.PI / 2;
+      const lamp = box(root, 0.5, 0.12, 0.25, ox + dz / L * 1.2, 5.88, oz - dx / L * 1.2, lm); lamp.rotation.y = arm.rotation.y; } }
+  // soyalar
+  root.traverse(o => { if (o.isMesh && o !== ground) { o.castShadow = true; o.receiveShadow = true; } });
+  ground.receiveShadow = true;
   const height = (x, z) => { for (const r of ramps) { const [u, v] = W2L(r.f, x, z); if (Math.abs(u) <= r.hw && v > r.v0 && v < r.v3) return r.hAt(v); } return 0; };
   return { root, mods, lights, path, drivable, height, W, RW, start: { x: 0, z: D / 2 + 0.6, h: 0 }, bounds: { X0, Z0, w: cw / PX, h: ch / PX } };
 }
 
 function buildWorld(scene) {
-  scene.background = new THREE.Color(0x9fd3f5);
-  scene.fog = new THREE.Fog(0x9fd3f5, 70, 190);
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x5a7a3a, 0.9));
-  const sun = new THREE.DirectionalLight(0xffffff, 1.1); sun.position.set(20, 40, 10); scene.add(sun);
-  const grass = new THREE.Mesh(new THREE.PlaneGeometry(1000, 1000), new THREE.MeshStandardMaterial({ color: 0x64a04c }));
-  grass.rotation.x = -Math.PI / 2; grass.position.y = -0.01; scene.add(grass);
+  // osmon (fizik modeldagi quyosh nuri tarqalishi)
+  const sky = new Sky(); sky.scale.setScalar(900); scene.add(sky);
+  const sunDir = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(55), THREE.MathUtils.degToRad(200));
+  Object.assign(sky.material.uniforms, {}); sky.material.uniforms.sunPosition.value.copy(sunDir);
+  sky.material.uniforms.turbidity.value = 6; sky.material.uniforms.rayleigh.value = 1.6;
+  sky.material.uniforms.mieCoefficient.value = 0.004; sky.material.uniforms.mieDirectionalG.value = 0.8;
+  scene.fog = new THREE.Fog(0xc9dcea, 90, 260);
+  scene.add(new THREE.HemisphereLight(0xdfefff, 0x55703a, 0.75));
+  const sun = new THREE.DirectionalLight(0xfff4e0, 2.2); sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -28, right: 28, top: 28, bottom: -28, near: 1, far: 120 });
+  sun.shadow.bias = -0.0005; sun.shadow.normalBias = 0.03; sun.userData.dir = sunDir; scene.add(sun, sun.target);
+  // o't (shovqinli tekstura)
+  const gc = document.createElement("canvas"); gc.width = gc.height = 256; const g = gc.getContext("2d");
+  g.fillStyle = "#5f9a45"; g.fillRect(0, 0, 256, 256);
+  for (let i = 0; i < 9000; i++) { const v = Math.random(); g.fillStyle = v < 0.5 ? "rgba(40,90,30,0.35)" : v < 0.85 ? "rgba(120,170,80,0.3)" : "rgba(150,140,80,0.25)"; g.fillRect(Math.random() * 256, Math.random() * 256, 2, 2); }
+  const gt = new THREE.CanvasTexture(gc); gt.wrapS = gt.wrapT = THREE.RepeatWrapping; gt.repeat.set(220, 220); gt.colorSpace = THREE.SRGBColorSpace; gt.anisotropy = 8;
+  const grass = new THREE.Mesh(new THREE.PlaneGeometry(1200, 1200), new THREE.MeshStandardMaterial({ map: gt, roughness: 1 }));
+  grass.rotation.x = -Math.PI / 2; grass.position.y = -0.01; grass.receiveShadow = true; scene.add(grass);
   // o'quv binosi va bayroq (yo'llardan sharqda)
-  const bld = new THREE.Mesh(new THREE.BoxGeometry(9, 7, 20), new THREE.MeshStandardMaterial({ color: 0xf1ede4 }));
-  bld.position.set(22, 3.5, -12); scene.add(bld);
-  const roofB = new THREE.Mesh(new THREE.BoxGeometry(9.6, 0.5, 20.6), new THREE.MeshStandardMaterial({ color: 0x2e6fbd })); roofB.position.set(22, 7.2, -12); scene.add(roofB);
-  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 9), new THREE.MeshStandardMaterial({ color: 0xcfd8dc })); pole.position.set(12, 4.5, 4); scene.add(pole);
+  const bld = new THREE.Group(); bld.position.set(22, 0, -12); scene.add(bld);
+  const wall = new THREE.Mesh(new THREE.BoxGeometry(9, 7, 20), new THREE.MeshStandardMaterial({ color: 0xf1ede4 })); wall.position.y = 3.5; bld.add(wall);
+  const roofB = new THREE.Mesh(new THREE.BoxGeometry(9.6, 0.5, 20.6), new THREE.MeshStandardMaterial({ color: 0x2e6fbd })); roofB.position.y = 7.2; bld.add(roofB);
+  const glass = new THREE.MeshStandardMaterial({ color: 0x5d88a8, roughness: 0.15, metalness: 0.4 });
+  for (let fl = 0; fl < 2; fl++) for (let k = 0; k < 6; k++) { const w = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.4, 2), glass); w.position.set(-4.52, 1.8 + fl * 3, -7.5 + k * 3); bld.add(w); }
+  bld.traverse(o => { if (o.isMesh) o.castShadow = o.receiveShadow = true; });
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 9), new THREE.MeshStandardMaterial({ color: 0xcfd8dc })); pole.position.set(12, 4.5, 4); pole.castShadow = true; scene.add(pole);
   [0x1eb4e6, 0xffffff, 0x1eb53a].forEach((c, i) => { const f = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.4, 0.02), new THREE.MeshStandardMaterial({ color: c, side: THREE.DoubleSide }));
     f.position.set(12.95, 8.6 - i * 0.42, 4); scene.add(f); });
   // yo'l harakati xodimi — start oldida, yo'ldan tashqarida (bezak)
@@ -505,39 +564,112 @@ function buildWorld(scene) {
     const box = new THREE.Box3().setFromObject(piv), k = 1.8 / box.getSize(new THREE.Vector3()).y;
     piv.scale.setScalar(k); piv.updateMatrixWorld(true);
     const b2 = new THREE.Box3().setFromObject(piv), c = b2.getCenter(new THREE.Vector3());
-    piv.position.set(7 - c.x, -b2.min.y, 1 - c.z); piv.rotation.y = 0; scene.add(piv);
+    piv.position.set(7 - c.x, -b2.min.y, 1 - c.z); piv.traverse(m => { if (m.isMesh) m.castShadow = true; }); scene.add(piv);
     const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.12, 20), new THREE.MeshStandardMaterial({ color: 0xffffff }));
     stand.position.set(7, 0.06, 1); scene.add(stand);
   }).catch(() => {});
+  return { sun };
 }
+
+// ---------- OVOZ (WebAudio: dvigatel, povorotnik, signal, zarba) ----------
+const Sound = {
+  ctx: null, on: true,
+  init() {
+    try { const s = localStorage.getItem("snd"); if (s !== null) this.on = s === "1"; } catch (e) {}
+    if (this.ctx) { this.ctx.resume?.(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+    const x = this.ctx = new AC();
+    this.master = x.createGain(); this.master.gain.value = this.on ? 0.6 : 0; this.master.connect(x.destination);
+    this.lp = x.createBiquadFilter(); this.lp.type = "lowpass"; this.lp.frequency.value = 600; this.lp.Q.value = 2;
+    this.eng = x.createGain(); this.eng.gain.value = 0; this.lp.connect(this.eng).connect(this.master);
+    this.o1 = x.createOscillator(); this.o1.type = "sawtooth"; this.o2 = x.createOscillator(); this.o2.type = "triangle";
+    const g2 = x.createGain(); g2.gain.value = 0.6; this.o1.connect(this.lp); this.o2.connect(g2).connect(this.lp);
+    this.o1.frequency.value = 27; this.o2.frequency.value = 13.5; this.o1.start(); this.o2.start();
+    const n = x.createBuffer(1, x.sampleRate * 0.03, x.sampleRate), d = n.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+    this.noise = n;
+  },
+  toggle() { this.on = !this.on; try { localStorage.setItem("snd", this.on ? "1" : "0"); } catch (e) {} if (this.master) this.master.gain.value = this.on ? 0.6 : 0; return this.on; },
+  engine(rpm, load) {
+    if (!this.ctx) return; const t = this.ctx.currentTime, f = rpm / 60 * 2;   // 4 silindr: aylanishiga 2 ta yonish
+    this.o1.frequency.setTargetAtTime(f, t, 0.06); this.o2.frequency.setTargetAtTime(f / 2, t, 0.06);
+    this.lp.frequency.setTargetAtTime(300 + load * 700 + rpm / 5, t, 0.08); this.eng.gain.setTargetAtTime(0.05 + load * 0.06, t, 0.1);
+  },
+  click(hi) {
+    if (!this.ctx) return; const x = this.ctx, s = x.createBufferSource(), bp = x.createBiquadFilter(), g = x.createGain();
+    s.buffer = this.noise; bp.type = "bandpass"; bp.frequency.value = hi ? 2600 : 1700; bp.Q.value = 4; g.gain.value = 0.9;
+    s.connect(bp).connect(g).connect(this.master); s.start();
+  },
+  thump() {
+    if (!this.ctx) return; const x = this.ctx, o = x.createOscillator(), g = x.createGain(), t = x.currentTime;
+    o.frequency.setValueAtTime(90, t); o.frequency.exponentialRampToValueAtTime(40, t + 0.2);
+    g.gain.setValueAtTime(0.5, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.25); o.connect(g).connect(this.master); o.start(); o.stop(t + 0.3);
+  },
+  horn(on) {
+    if (!this.ctx) return; const x = this.ctx;
+    if (on && !this.hornG) { this.hornG = x.createGain(); this.hornG.gain.value = 0.12; this.hornG.connect(this.master);
+      this.hornO = [415, 520].map(fq => { const o = x.createOscillator(); o.type = "square"; o.frequency.value = fq; o.connect(this.hornG); o.start(); return o; }); }
+    else if (!on && this.hornG) { this.hornO.forEach(o => o.stop()); this.hornG.disconnect(); this.hornG = null; }
+  },
+  silence() { if (this.ctx) { this.eng.gain.setTargetAtTime(0, this.ctx.currentTime, 0.05); this.horn(false); } },
+};
 
 // ---------- O'YIN ----------
 const ui = id => document.getElementById(id);
+const haptic = (kind, v) => { const h = window.Telegram?.WebApp?.HapticFeedback; if (!h) return; kind === "impact" ? h.impactOccurred(v) : kind === "sel" ? h.selectionChanged() : h.notificationOccurred(v); };
+const WHEEL_MAX = 540;      // rul g'ildiragi: chapga/o'ngga 1,5 aylanish (≈ 14:1 uzatish)
 const Drive = {
   keys: {}, run: false, camMode: 0, carId: "cobalt",
+  ctl: { wheel: 0, touch: false, gas: 0, brake: 0, gear: "P", sigL: false, sigR: false, horn: false },
   init() {
     if (this.renderer) return;
     const cv = ui("cv");
-    this.renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true });
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    const r = this.renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true });
+    r.setPixelRatio(Math.min(devicePixelRatio, 2));
+    r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
+    r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 0.85;
     this.scene = new THREE.Scene();
-    this.camera = new THREE.PerspectiveCamera(60, 1, 0.1, 500);
-    buildWorld(this.scene);
+    this.camera = new THREE.PerspectiveCamera(60, 1, 0.05, 1200);
+    this.world = buildWorld(this.scene);
+    // ko'zgular: alohida kameralar → kichik teksturalar → ekran ustidagi qatlam (ko'zgu sifatida teskari)
+    this.mirrors = [["rear", 512, 160, 40], ["left", 256, 160, 36], ["right", 256, 160, 36]].map(([id, w, h, fov]) => {
+      const rt = new THREE.WebGLRenderTarget(w, h, { samples: 2 }); rt.texture.colorSpace = THREE.SRGBColorSpace;
+      const tex = rt.texture; tex.repeat.x = -1; tex.offset.x = 1; tex.wrapS = THREE.RepeatWrapping;
+      const frame = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ color: 0x111111 }));
+      const glass = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false }));
+      return { id, rt, cam: new THREE.PerspectiveCamera(fov, w / h, 0.1, 300), frame, glass };
+    });
+    this.hud = new THREE.Scene(); this.hudCam = new THREE.OrthographicCamera(0, 1, 1, 0, -1, 1);
+    this.mirrors.forEach(m => this.hud.add(m.frame, m.glass));
     addEventListener("resize", () => this.resize());
   },
   start(carId) {
     if (carId) this.carId = carId;
-    this.init();
+    this.init(); Sound.init();
     ui("game").style.display = "block"; this.resize();
     const spec = CARS[this.carId];
     if (this.course) { this.scene.remove(this.course.root); this.course.root.traverse(o => { o.geometry?.dispose(); o.material?.map?.dispose?.(); }); }
     this.course = makeCourse(spec); this.scene.add(this.course.root);
     if (this.carObj) this.scene.remove(this.carObj);
     this.carObj = carMesh(spec); this.scene.add(this.carObj); this.spec = spec;
+    this.carObj.traverse(o => { if (o.isMesh) o.castShadow = true; });
+    // kabinadan ko'rinadigan kapot
+    if (this.hood) this.scene.remove(this.hood);
+    this.hood = null;
+    if (spec.type !== "van") {
+      // kapot: oldinga torayib, pastga egilgan sirt (haydovchi o'rnidan ko'rinadigan qismi)
+      const hl = spec.len / 2 - 0.6, w0 = spec.wid - 0.2, w1 = spec.wid - 0.5, g = new THREE.BufferGeometry();
+      const v = [-w0 / 2, 0, -0.6, w0 / 2, 0, -0.6, w1 / 2, -0.1, -0.6 - hl, -w1 / 2, -0.1, -0.6 - hl];
+      g.setAttribute("position", new THREE.Float32BufferAttribute(v, 3)); g.setIndex([0, 2, 1, 0, 3, 2]); g.computeVertexNormals();
+      this.hood = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: spec.color, roughness: 0.3, metalness: 0.55, side: THREE.DoubleSide }));
+      this.scene.add(this.hood);
+    }
     const s0 = this.course.start;
     this.car = { x: s0.x, z: s0.z, h: s0.h, v: 0, steer: 0, y: 0 };
-    Object.assign(this, { t: 0, pen: 0, mi: 0, log: [], edge: false, edgeT: 0, speeding: false, signal: false, prevFv: null, result: null, keys: {} });
-    this.say(`1-mashq: ${this.course.mods[0].name}. Tezlik — 20 km/soatgacha`);
+    Object.assign(this.ctl, { wheel: 0, touch: false, gas: 0, brake: 0, gear: "P", sigL: false, sigR: false, horn: false, cancel: false });
+    Object.assign(this, { t: 0, pen: 0, mi: 0, log: [], edge: false, edgeT: 0, speeding: false, signal: false, prevFv: null, result: null, keys: {}, blink: 0, frame: 0 });
+    this.say(`1-mashq: ${this.course.mods[0].name}. Tormozni bosib, uzatmani D ga qo'ying, chap burilish chirog'ini yoqing. Tezlik — 20 km/soatgacha`, 7);
+    this.syncUI();
     this.run = true; this.last = performance.now(); const gen = this.gen = (this.gen || 0) + 1;
     requestAnimationFrame(t => this.loop(t, gen));
   },
@@ -546,12 +678,39 @@ const Drive = {
     const w = innerWidth, h = innerHeight;
     this.renderer.setSize(w, h, false); ui("cv").style.width = w + "px"; ui("cv").style.height = h + "px";
     this.camera.aspect = w / h; this.camera.updateProjectionMatrix();
+    Object.assign(this.hudCam, { left: 0, right: w, top: h, bottom: 0 }); this.hudCam.updateProjectionMatrix();
+    // ko'zgular joylashuvi (piksel): salon ko'zgusi tepada o'rtada, yon ko'zgular chetlarda
+    const rw = Math.min(w * 0.3, 360), rh = rw / 3.2, sw = Math.min(w * 0.17, 200), sh = sw / 1.6;
+    const place = (m, cx, cy, ww, hh) => { m.glass.position.set(cx, cy, 0); m.glass.scale.set(ww, hh, 1); m.frame.position.set(cx, cy, -0.1); m.frame.scale.set(ww + 8, hh + 8, 1); };
+    place(this.mirrors[0], w / 2, h - 18 - rh / 2, rw, rh);
+    place(this.mirrors[1], 6 + sw / 2, h * 0.665, sw, sh);
+    place(this.mirrors[2], w - 6 - sw / 2, h * 0.665, sw, sh);
   },
-  toggleCam() { this.camMode = (this.camMode + 1) % 3; },
-  say(t) { const m = ui("hMsg"); m.textContent = t; m.style.display = "block"; this.msgT = 4; },
+  toggleCam() { this.camMode = (this.camMode + 1) % 3; this.syncUI(); },
+  toggleSound() { const on = Sound.toggle(); ui("bSnd").textContent = on ? "🔊" : "🔇"; },
+  setGear(g) {
+    const c = this.ctl; if (!this.run || g === c.gear) return;
+    if (Math.abs(this.car.v) > 0.3) return this.say("Uzatmani almashtirishdan oldin to'liq to'xtang");
+    if (c.brake < 0.2 && !this.keys.brake) return this.say("Uzatmani almashtirish uchun tormoz pedalini bosib turing");
+    c.gear = g; haptic("sel"); Sound.click(false); this.syncUI();
+  },
+  signal(side) {
+    const c = this.ctl;
+    if (side === "L") { c.sigL = !c.sigL; c.sigR = false; } else { c.sigR = !c.sigR; c.sigL = false; }
+    c.cancel = false; Sound.click(true); haptic("sel"); this.syncUI();
+  },
+  horn(on) { this.ctl.horn = on; Sound.horn(on); },
+  syncUI() {
+    const c = this.ctl;
+    document.querySelectorAll("#gearbox button").forEach(b => b.classList.toggle("on", b.dataset.g === c.gear));
+    ui("bSigL")?.classList.toggle("on", c.sigL); ui("bSigR")?.classList.toggle("on", c.sigR);
+    ui("game")?.classList.toggle("cabin", this.camMode === 0);
+    if (ui("gearInd")) ui("gearInd").textContent = c.gear;
+  },
+  say(t, sec = 4) { const m = ui("hMsg"); m.textContent = t; m.style.display = "block"; this.msgT = sec; },
   err(why) {
-    this.pen += 1; this.log.push(why); this.say(`⚠️ ${why}`);
-    window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred("warning");
+    this.pen += 1; this.log.push(why); this.say(`⚠️ ${why}`, 5);
+    haptic("note", "warning");
     if (this.pen >= MAX_ERR) this.end(false, `${MAX_ERR} ta xato: ${this.log.join("; ")}`);
   },
   loop(now, gen) {
@@ -569,31 +728,52 @@ const Drive = {
   },
   rearCorners() { return this.corners().slice(2); },
   update(dt) {
-    const c = this.car, k = this.keys, s = this.spec, C = this.course;
+    const c = this.car, k = this.keys, s = this.spec, C = this.course, ctl = this.ctl;
     this.t += dt;
     if (this.msgT > 0 && (this.msgT -= dt) <= 0) ui("hMsg").style.display = "none";
     for (const L of C.lights) L.show(this.t);
-    // fizika
+    // --- boshqaruv: sensorli rul/pedallar yoki (sinov va klaviatura uchun) keys ---
+    if (k.gas || k.reverse) ctl.gear = k.reverse ? "R" : "D";
+    const gasV = Math.max(ctl.gas, k.gas || k.reverse ? 1 : 0), brakeV = Math.max(ctl.brake, k.brake ? 1 : 0);
+    if (k.left || k.right) ctl.wheel += (k.right ? 1 : -1) * 900 * dt;
+    else if (!ctl.touch) ctl.wheel -= Math.sign(ctl.wheel) * Math.min(Math.abs(ctl.wheel), Math.min(1, Math.abs(c.v) / 4) * 300 * dt);   // harakatda rul o'zi qaytadi
+    ctl.wheel = Math.max(-WHEEL_MAX, Math.min(WHEEL_MAX, ctl.wheel));
+    c.steer = ctl.wheel / WHEEL_MAX * STEER;
+    // povorotnik: burilishdan keyin rul qaytganda o'zi o'chadi (46-band)
+    if ((ctl.sigL || ctl.sigR) && Math.abs(ctl.wheel) > 200) ctl.cancel = true;
+    if (ctl.cancel && Math.abs(ctl.wheel) < 40) { ctl.sigL = ctl.sigR = false; ctl.cancel = false; this.syncUI(); }
+    // --- fizika: avtomat uzatma, tormoz, qiyalik ---
     const [fx, fz] = this.fwd();
     const hF = C.height(c.x + fx * s.wb / 2, c.z + fz * s.wb / 2), hR = C.height(c.x - fx * s.wb / 2, c.z - fz * s.wb / 2);
     const slope = Math.atan2(hF - hR, s.wb);                 // >0 — tepaga qarab turibdi
-    const hold = k.brake && !k.gas && !k.reverse && Math.abs(c.v) < 0.05;
-    if (k.gas) c.v = c.v < 0 ? c.v + 6 * dt : Math.min(13, c.v + s.acc * (1 - c.v / 16) * dt);
-    else if (k.reverse) c.v = c.v > 0.05 ? c.v - 6 * dt : Math.max(-2.5, c.v - 1.6 * dt);
-    else if (k.brake) c.v -= Math.sign(c.v) * Math.min(Math.abs(c.v), 7 * dt);
-    else c.v -= Math.sign(c.v) * Math.min(Math.abs(c.v), 0.6 * dt);
-    if (hold) c.v = 0; else c.v -= 9.8 * Math.sin(slope) * dt * 0.75;          // qiyalikda orqaga ketish
-    const target = k.left ? -STEER : k.right ? STEER : 0;
-    c.steer += (target - c.steer) * Math.min(1, dt * 6);
+    const dir = ctl.gear === "D" ? 1 : ctl.gear === "R" ? -1 : 0;
+    let a = 0;
+    if (dir) {
+      const vd = c.v * dir, vmax = dir > 0 ? 14 : 4;
+      if (gasV > 0.02) a += dir * s.acc * gasV * Math.max(0, 1 - vd / vmax) * (vd < 0 ? 1.5 : 1);
+      else if (brakeV < 0.05) a += vd < (dir > 0 ? 1.4 : 1.1) ? dir * 0.9 : -dir * 0.5;   // "sudralish" va dvigatel bilan tormozlash
+    }
+    c.v += a * dt;
+    if (brakeV > 0) c.v -= Math.sign(c.v) * Math.min(Math.abs(c.v), 8 * brakeV * dt);
+    c.v -= Math.sign(c.v) * Math.min(Math.abs(c.v), 0.25 * dt);                       // dumalash qarshiligi
+    const hold = ctl.gear === "P" || (brakeV > 0.3 && gasV < 0.05 && Math.abs(c.v) < 0.15);
+    if (hold) c.v = 0; else c.v -= 9.8 * Math.sin(slope) * dt * 0.75;                  // qiyalikda orqaga ketish
     // velosiped modeli: orqa o'q yon tomonga sirpanmaydi, mashina orqa o'q atrofida buriladi
     const rx = c.x - fx * s.wb / 2 + fx * c.v * dt, rz = c.z - fz * s.wb / 2 + fz * c.v * dt;
     c.h += (c.v / s.wb) * Math.tan(c.steer) * dt;
     c.x = rx + Math.sin(c.h) * s.wb / 2; c.z = rz - Math.cos(c.h) * s.wb / 2;
     c.y = (hF + hR) / 2; c.pitch = slope;
+    this.gasV = gasV; this.brakeV = brakeV;
+    // ovoz: dvigatel aylanishlari (avtomat qutining 3 pog'onasi)
+    const av = Math.abs(c.v), steps = [0, 4.5, 9, 14], gi = Math.min(2, steps.findIndex((x, i) => av < steps[i + 1]) < 0 ? 2 : steps.findIndex((x, i) => av < steps[i + 1]));
+    const rpm = dir ? 800 + (av - steps[gi]) / (steps[gi + 1] - steps[gi]) * 2400 + gasV * 600 : 800 + gasV * 3200;
+    Sound.engine(rpm, gasV);
+    this.blink += dt; const on = (this.blink % 0.8) < 0.4;
+    if ((ctl.sigL || ctl.sigR) && on !== this.blinkOn) Sound.click(on); this.blinkOn = on;
     // yo'ldan chiqish va chegara chizig'ini bosish
     if (!C.drivable(c.x, c.z)) return this.end(false, "Mashina avtodrom yo'lidan chiqib ketdi");
     if (this.corners().some(([x, z]) => !C.drivable(x, z))) {
-      if (!this.edge) { this.edge = true; this.err("Chegara chizig'ini bosdingiz (bordyurga tegdingiz)"); if (!this.run) return; }
+      if (!this.edge) { this.edge = true; Sound.thump(); haptic("impact", "heavy"); this.err("Chegara chizig'ini bosdingiz (bordyurga tegdingiz)"); if (!this.run) return; }
       this.edgeT = 0;
     } else if (this.edge && (this.edgeT += dt) > 0.7) this.edge = false;
     // svetofor: qizil ishorada to'xtash chizig'idan o'tish
@@ -618,32 +798,57 @@ const Drive = {
     if (this.t > TIME_LIMIT) return this.end(false, `Vaqt tugadi (${TIME_LIMIT / 60} daqiqa)`);
     const shown = C.mods.filter(x => !x.hide), idx = C.mods.slice(0, this.mi + 1).filter(x => !x.hide).length;
     ui("hTime").textContent = `⏱ ${this.t.toFixed(0)} s`;
-    ui("hStep").textContent = `${Math.round(kmh)} km/soat · ${Math.max(1, idx)}/${shown.length}`;
+    ui("hStep").textContent = `${Math.max(1, idx)}/${shown.length}`;
     ui("hPen").textContent = `Xato: ${this.pen}/${MAX_ERR}`;
+    // asboblar paneli
+    const nd = ui("needle"); if (nd) nd.setAttribute("transform", `rotate(${-120 + Math.min(100, kmh) * 2.4} 60 60)`);
+    if (ui("spd")) ui("spd").textContent = Math.round(kmh);
+    ui("tlL")?.classList.toggle("on", ctl.sigL && on); ui("tlR")?.classList.toggle("on", ctl.sigR && on);
+    ui("tlB")?.classList.toggle("on", brakeV > 0.1 || ctl.gear === "P");
+    const wh = ui("wheel"); if (wh) wh.style.transform = `rotate(${ctl.wheel}deg)`;
   },
   render(dt) {
-    const c = this.car, o = this.carObj;
+    const c = this.car, o = this.carObj, s = this.spec, r = this.renderer;
     o.position.set(c.x, c.y, c.z); o.rotation.set(0, 0, 0); o.rotateY(-c.h); o.rotateX(c.pitch || 0);
     o.wheels.forEach(w => { if (w.front) w.rotation.y = -c.steer; w.children.forEach(m => m.rotation.x -= c.v * dt / 0.31); });
-    o.brake.emissiveIntensity = this.keys.brake ? 1.2 : 0.05;
-    const [fx, fz] = this.fwd(), cam = this.camera;
+    o.brake.emissiveIntensity = (this.brakeV || 0) > 0.1 ? 1.4 : 0.05;
+    if (this.hood) { this.hood.position.set(c.x, c.y + 0.86, c.z); this.hood.rotation.set(0, 0, 0); this.hood.rotateY(-c.h); this.hood.rotateX(c.pitch || 0); }
+    const [fx, fz] = this.fwd(), rx = -fz, rz = fx, cam = this.camera, P = (f, rr, up) => new THREE.Vector3(c.x + fx * f + rx * rr, c.y + up, c.z + fz * f + rz * rr);
+    const eyeH = s.type === "van" ? 1.42 : s.type === "hatch" ? 1.2 : 1.14;
     let tp, look;
-    if (this.camMode === 0) { tp = new THREE.Vector3(c.x - fx * 7, c.y + 3.2, c.z - fz * 7); look = new THREE.Vector3(c.x + fx * 4, c.y + 0.8, c.z + fz * 4); }
-    else if (this.camMode === 1) { tp = new THREE.Vector3(c.x, c.y + 20, c.z + 0.01); look = new THREE.Vector3(c.x, 0, c.z); }
-    else { tp = new THREE.Vector3(c.x + fx * 0.2, c.y + 1.25, c.z + fz * 0.2); look = new THREE.Vector3(c.x + fx * 10, c.y + 1, c.z + fz * 10); }
-    if (this.camMode === 2) cam.position.copy(tp); else cam.position.lerp(tp, Math.min(1, dt * 5));
+    if (this.camMode === 0) { tp = P(-0.25, -0.36, eyeH); look = P(12, -0.36, eyeH - 1.1); cam.fov = 72; }          // haydovchi o'rni (chap tomonda)
+    else if (this.camMode === 1) { tp = P(-7, 0, 3.2); look = P(4, 0, 0.8); cam.fov = 60; }
+    else { tp = new THREE.Vector3(c.x, c.y + 22, c.z + 0.01); look = new THREE.Vector3(c.x, 0, c.z); cam.fov = 60; }
+    cam.updateProjectionMatrix();
+    if (this.camMode === 0 || this.camMode === 2) cam.position.copy(tp); else cam.position.lerp(tp, Math.min(1, dt * 5));
     cam.lookAt(look);
-    this.carObj.visible = this.camMode !== 2;
-    this.renderer.render(this.scene, cam);
+    // quyosh soyasi mashina atrofida
+    const sun = this.world.sun; sun.target.position.set(c.x, 0, c.z); sun.position.copy(sun.target.position).addScaledVector(sun.userData.dir, 60);
+    const cabin = this.camMode === 0;
+    o.visible = !cabin; if (this.hood) this.hood.visible = cabin;
+    r.autoClear = true; r.render(this.scene, cam);
+    if (!cabin) return;
+    // ko'zgular (har ikkinchi kadrda yangilanadi)
+    if ((this.frame = (this.frame + 1) % 2) === 0) {
+      const sideY = eyeH - 0.15, conf = {
+        rear: [P(0.1, 0, eyeH + 0.1), P(-30, 0, eyeH - 0.6), false],
+        left: [P(0.55, -(s.wid / 2 + 0.1), sideY), P(-30, -(s.wid / 2 + 5), sideY - 0.9), true],
+        right: [P(0.55, s.wid / 2 + 0.1, sideY), P(-30, s.wid / 2 + 5, sideY - 0.9), true] };
+      for (const m of this.mirrors) { const [pos, lk, showCar] = conf[m.id]; m.cam.position.copy(pos); m.cam.lookAt(lk);
+        o.visible = showCar; if (this.hood) this.hood.visible = false;
+        r.setRenderTarget(m.rt); r.render(this.scene, m.cam); }
+      r.setRenderTarget(null); o.visible = false; if (this.hood) this.hood.visible = true;
+    }
+    r.autoClear = false; r.clearDepth(); r.render(this.hud, this.hudCam); r.autoClear = true;
   },
   async end(passed, reason) {
-    if (!this.run) return; this.run = false;
+    if (!this.run) return; this.run = false; Sound.silence();
     const time = Math.round(this.t); this.result = { passed, reason, time, pen: this.pen, log: [...this.log] };
     if (passed && window.api) { try { window.setMe(await window.api("/api/result", { kind: "drive", passed: true, time })); } catch (e) {} }
     ui("game").style.display = "none";
     window.showDriveResult?.(passed, reason, time, this.pen, MAX_ERR);
   },
-  stop() { this.run = false; ui("game").style.display = "none"; window.home(); },
+  stop() { this.run = false; Sound.silence(); ui("game").style.display = "none"; window.home(); },
 };
 window.Drive = Drive;
 window.CARS = CARS;
