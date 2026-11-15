@@ -41,7 +41,7 @@ QUESTIONS = json.loads((HERE / "questions.json").read_text(encoding="utf-8"))
 
 # ---------- MA'LUMOTLAR BAZASI ----------
 # DB_PATH — doimiy diskdagi fayl (masalan, Railway volume: /data/users.db). Aks holda server qayta ishga tushganda to'lovlar yo'qoladi.
-DB_PATH = Path(os.environ.get("DB_PATH", HERE / "users.db"))
+DB_PATH = Path(os.environ.get("DB_PATH") or (Path("/data/users.db") if Path("/data").is_dir() else HERE / "users.db"))
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 db = sqlite3.connect(DB_PATH, check_same_thread=False)
 db.execute("""CREATE TABLE IF NOT EXISTS users (
