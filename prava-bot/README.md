@@ -53,18 +53,28 @@ Telegram qoidalariga ko'ra, bot ichida sotiladigan raqamli mahsulot va xizmatlar
 
 > 5 000 so'm taxminan 25–30 Stars'ga to'g'ri keladi. Stars narxi o'zgarib turadi, shuning uchun `PRICE_STARS` ni o'zingiz sozlang.
 
-## Ishga tushirish
+## Ishga tushirish (Railway)
 
-1. **Bot yarating:** Telegram'da @BotFather → `/newbot` → tokenni oling.
-2. **Server tayyorlang:** Mini App faqat **HTTPS** manzilda ishlaydi. Variantlar: VPS va domen (masalan, Caddy yoki Nginx orqali HTTPS), yoki Render, Railway kabi xizmatlar.
-3. **Fayllarni serverga ko'chiring va sozlang:**
-   ```bash
-   pip install -r requirements.txt
-   cp .env.example .env      # BOT_TOKEN, WEBAPP_URL, PRICE_STARS ni to'ldiring
-   python3 app.py
-   ```
-4. **Mini App'ni botga ulang (ixtiyoriy):** @BotFather → `/mybots` → botingiz → *Bot Settings → Menu Button* → `WEBAPP_URL`.
-5. **Instagram:** profil "bio"siga bot havolasini qo'ying: `https://t.me/BOT_NOMI`.
+Bot bitta jarayonda ishlaydi: Telegram'ni doimiy tinglaydi va Mini App sahifasini ham o'zi beradi. Shuning uchun server **uxlamasligi** va `users.db` (kim to'lagani) **doimiy diskda** turishi kerak. Railway ikkalasini ham beradi.
+
+1. **Bot yarating:** Telegram'da @BotFather → `/newbot` → tokenni oling. Tokenni hech kimga yubormang.
+2. **Railway:** [railway.com](https://railway.com) ga GitHub orqali kiring → *New Project* → *Deploy from GitHub repo* → `Yoshlar-uchun` reposi.
+3. **Service → Settings:**
+   - *Root Directory*: `prava-bot` (bot shu papkada; `Dockerfile` va `railway.json` avtomatik topiladi);
+   - *Networking → Generate Domain* — HTTPS manzil beriladi (`...up.railway.app`). Bot uni o'zi `WEBAPP_URL` sifatida oladi.
+4. **Volume (doimiy disk):** service ustida o'ng tugma → *Attach Volume* → *Mount path*: `/data`.
+5. **Variables:**
+   - `BOT_TOKEN` = BotFather bergan token;
+   - `DB_PATH` = `/data/users.db`;
+   - `PRICE_STARS` = `25` (yoki o'zingiz tanlagan narx).
+6. *Deploy* tugmasini bosing. *Deployments → Logs* da `Mini App serveri` yozuvi chiqsa, bot ishga tushgan.
+7. **Tekshirish:** Telegram'da botingizga `/start` yozing → "Ochish" tugmasi Mini App'ni ochadi.
+8. **Menyu tugmasi (ixtiyoriy):** @BotFather → `/mybots` → bot → *Bot Settings → Menu Button* → Railway manzili.
+9. **Instagram:** profil "bio"siga `https://t.me/BOT_NOMI` havolasini qo'ying.
+
+> Narx: Railway bepul sinov krediti beradi, keyin *Hobby* tarifi oyiga taxminan 5 $ (railway.com/pricing da tekshiring). Render'ning bepul tarifi bu bot uchun mos emas: 15 daqiqa so'rov bo'lmasa uxlaydi va diskni saqlamaydi, ya'ni to'lovlar yo'qolib ketadi.
+
+Boshqa server (VPS) ham bo'ladi: `docker build -t prava . && docker run -d --restart=always -v prava-data:/data -e BOT_TOKEN=... -e WEBAPP_URL=https://domen/ -e DB_PATH=/data/users.db -p 8080:8080 prava` va oldiga HTTPS (Caddy yoki Nginx).
 
 Lokal sinov (Telegram'siz): `DEV=1 python3 app.py`, keyin brauzerda `http://localhost:8080/?dev=1` ni oching.
 
@@ -89,4 +99,5 @@ Savollar `questions.json` faylida. Har bir savol:
 - `webapp/index.html` — Mini App: bosh sahifa va test
 - `webapp/avtodrom3d.js` — 3D avtodrom
 - `questions.json` — savollar bazasi
-- `users.db` — foydalanuvchilar va to'lovlar (avtomatik yaratiladi, zaxira nusxasini saqlang)
+- `users.db` — foydalanuvchilar va to'lovlar (avtomatik yaratiladi, joyi `DB_PATH` bilan beriladi; zaxira nusxasini saqlang)
+- `Dockerfile`, `railway.json` — serverga joylash uchun

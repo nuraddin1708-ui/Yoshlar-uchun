@@ -29,6 +29,10 @@ def load_env(path=HERE / ".env"):
 load_env()
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 WEBAPP_URL = os.environ.get("WEBAPP_URL", "")          # https://... (Telegram faqat HTTPS qabul qiladi)
+if not WEBAPP_URL and os.environ.get("RAILWAY_PUBLIC_DOMAIN"):   # Railway domenni o'zi beradi
+    WEBAPP_URL = f"https://{os.environ['RAILWAY_PUBLIC_DOMAIN']}/"
+if not WEBAPP_URL and os.environ.get("RENDER_EXTERNAL_URL"):     # Render ham
+    WEBAPP_URL = os.environ["RENDER_EXTERNAL_URL"].rstrip("/") + "/"
 PRICE_STARS = int(os.environ.get("PRICE_STARS", "25"))  # narx Telegram Stars'da
 PORT = int(os.environ.get("PORT", "8080"))
 DEV = os.environ.get("DEV") == "1"                     # faqat lokal sinov uchun
@@ -36,7 +40,10 @@ FREE_QUESTIONS = 10
 QUESTIONS = json.loads((HERE / "questions.json").read_text(encoding="utf-8"))
 
 # ---------- MA'LUMOTLAR BAZASI ----------
-db = sqlite3.connect(HERE / "users.db", check_same_thread=False)
+# DB_PATH — doimiy diskdagi fayl (masalan, Railway volume: /data/users.db). Aks holda server qayta ishga tushganda to'lovlar yo'qoladi.
+DB_PATH = Path(os.environ.get("DB_PATH", HERE / "users.db"))
+DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+db = sqlite3.connect(DB_PATH, check_same_thread=False)
 db.execute("""CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY, name TEXT, paid INTEGER DEFAULT 0, paid_at INTEGER,
     charge_id TEXT, best_test INTEGER DEFAULT 0, best_drive INTEGER)""")

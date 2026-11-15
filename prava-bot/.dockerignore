@@ -1,0 +1,4 @@
+.env
+users.db
+__pycache__
+/*.png
