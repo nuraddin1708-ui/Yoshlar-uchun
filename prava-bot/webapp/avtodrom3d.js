@@ -204,7 +204,9 @@ function makeCourse(spec) {
     pts(f, [[0, 0], [0, 12]]); P = adv(f, 0, 12);
     exitAt(M({ id: "start", name: "Harakatni boshlash (START)", tick(d) {   // YHQ 45-band: harakatni boshlashdan oldin ishora
       const st = this.st; if (d.ctl.sigL) st.sig = true;
-      if (!st.moved && Math.abs(d.car.v) > 0.3) { st.moved = true; if (!st.sig) d.err("45-band: harakatni boshlashdan oldin chap burilish chirog'ini yoqmadingiz"); }
+      if (!st.moved && Math.abs(d.car.v) > 0.3) { st.moved = true;
+        if (!d.ctl.belt) { d.beltErr = true; d.err("9-band: harakatni boshlashdan oldin xavfsizlik kamarini taqmadingiz"); if (!d.run) return; }
+        if (!st.sig) d.err("45-band: harakatni boshlashdan oldin chap burilish chirog'ini yoqmadingiz"); }
     } }), P); }
 
   // 2. Piyodalar o'tish joyi — 14-band (5.16 belgilari, 1.14.1 chizig'i)
@@ -611,6 +613,11 @@ const Sound = {
       this.hornO = [415, 520].map(fq => { const o = x.createOscillator(); o.type = "square"; o.frequency.value = fq; o.connect(this.hornG); o.start(); return o; }); }
     else if (!on && this.hornG) { this.hornO.forEach(o => o.stop()); this.hornG.disconnect(); this.hornG = null; }
   },
+  beep() {
+    if (!this.ctx) return; const x = this.ctx, o = x.createOscillator(), g = x.createGain(), t = x.currentTime;
+    o.type = "sine"; o.frequency.value = 1400; g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.18, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.18); o.connect(g).connect(this.master); o.start(); o.stop(t + 0.2);
+  },
   silence() { if (this.ctx) { this.eng.gain.setTargetAtTime(0, this.ctx.currentTime, 0.05); this.horn(false); } },
 };
 
@@ -620,7 +627,7 @@ const haptic = (kind, v) => { const h = window.Telegram?.WebApp?.HapticFeedback;
 const WHEEL_MAX = 540;      // rul g'ildiragi: chapga/o'ngga 1,5 aylanish (≈ 14:1 uzatish)
 const Drive = {
   keys: {}, run: false, camMode: 0, carId: "cobalt",
-  ctl: { wheel: 0, touch: false, gas: 0, brake: 0, gear: "P", sigL: false, sigR: false, horn: false },
+  ctl: { wheel: 0, touch: false, gas: 0, brake: 0, gear: "P", sigL: false, sigR: false, horn: false, belt: false },
   init() {
     if (this.renderer) return;
     const cv = ui("cv");
@@ -666,9 +673,9 @@ const Drive = {
     }
     const s0 = this.course.start;
     this.car = { x: s0.x, z: s0.z, h: s0.h, v: 0, steer: 0, y: 0 };
-    Object.assign(this.ctl, { wheel: 0, touch: false, gas: 0, brake: 0, gear: "P", sigL: false, sigR: false, horn: false, cancel: false });
-    Object.assign(this, { t: 0, pen: 0, mi: 0, log: [], edge: false, edgeT: 0, speeding: false, signal: false, prevFv: null, result: null, keys: {}, blink: 0, frame: 0 });
-    this.say(`1-mashq: ${this.course.mods[0].name}. Tormozni bosib, uzatmani D ga qo'ying, chap burilish chirog'ini yoqing. Tezlik — 20 km/soatgacha`, 7);
+    Object.assign(this.ctl, { wheel: 0, touch: false, gas: 0, brake: 0, gear: "P", sigL: false, sigR: false, horn: false, cancel: false, belt: false });
+    Object.assign(this, { t: 0, pen: 0, mi: 0, log: [], edge: false, edgeT: 0, speeding: false, signal: false, prevFv: null, result: null, keys: {}, blink: 0, frame: 0, beltErr: false, chime: 0 });
+    this.say(`1-mashq: ${this.course.mods[0].name}. Kamarni taqing, tormozni bosib uzatmani D ga qo'ying, chap burilish chirog'ini yoqing. Tezlik — 20 km/soatgacha`, 8);
     this.syncUI();
     this.run = true; this.last = performance.now(); const gen = this.gen = (this.gen || 0) + 1;
     requestAnimationFrame(t => this.loop(t, gen));
@@ -700,10 +707,16 @@ const Drive = {
     c.cancel = false; Sound.click(true); haptic("sel"); this.syncUI();
   },
   horn(on) { this.ctl.horn = on; Sound.horn(on); },
+  belt() {
+    const c = this.ctl; c.belt = !c.belt; Sound.click(false); haptic(c.belt ? "impact" : "sel", "medium");
+    if (!c.belt && Math.abs(this.car.v) > 0.3 && !this.beltErr) { this.beltErr = true; this.err("9-band: harakat vaqtida xavfsizlik kamarini yechdingiz"); }
+    this.syncUI();
+  },
   syncUI() {
     const c = this.ctl;
     document.querySelectorAll("#gearbox button").forEach(b => b.classList.toggle("on", b.dataset.g === c.gear));
     ui("bSigL")?.classList.toggle("on", c.sigL); ui("bSigR")?.classList.toggle("on", c.sigR);
+    ui("bBelt")?.classList.toggle("on", c.belt); if (ui("bBelt")) ui("bBelt").title = c.belt ? "Kamar taqilgan" : "Kamarni taqing";
     ui("game")?.classList.toggle("cabin", this.camMode === 0);
     if (ui("gearInd")) ui("gearInd").textContent = c.gear;
   },
@@ -805,6 +818,9 @@ const Drive = {
     if (ui("spd")) ui("spd").textContent = Math.round(kmh);
     ui("tlL")?.classList.toggle("on", ctl.sigL && on); ui("tlR")?.classList.toggle("on", ctl.sigR && on);
     ui("tlB")?.classList.toggle("on", brakeV > 0.1 || ctl.gear === "P");
+    ui("tlS")?.classList.toggle("on", !ctl.belt && (on || Math.abs(c.v) < 0.3));
+    // kamar taqilmagan bo'lsa, yurganda ogohlantiruv ovozi (haqiqiy mashinalardagidek)
+    if (!ctl.belt && Math.abs(c.v) > 0.5 && (this.chime -= dt) <= 0) { this.chime = 0.6; Sound.beep(); }
     const wh = ui("wheel"); if (wh) wh.style.transform = `rotate(${ctl.wheel}deg)`;
   },
   render(dt) {

@@ -68,9 +68,12 @@
   .pedal.on { border-color: #ffd54f; transform: scaleY(.96); transform-origin: bottom; }
   #dash { position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%); display: flex; align-items: center; gap: 8px;
     background: linear-gradient(#1b1d21, #0d0e10); border: 1px solid #333; border-radius: 16px 16px 10px 10px; padding: 4px 12px; color: #ddd; pointer-events: none; }
-  #dash svg { width: min(18vh, 120px); height: min(18vh, 120px); }
+  #dash > svg { width: min(18vh, 120px); height: min(18vh, 120px); }
   .tl { font-size: 22px; opacity: .18; } .tl.on { opacity: 1; }
   #tlL.on, #tlR.on { color: #34e36a; text-shadow: 0 0 8px #34e36a; } #tlB.on { color: #ff5252; }
+  #tlS { display: inline-block; vertical-align: middle; } #tlS.on { color: #ff3b30; filter: drop-shadow(0 0 4px #ff3b30); }
+  #bBelt { color: #fff; display: flex; align-items: center; justify-content: center; }
+  #bBelt.on { background: #2e7d32; border-color: #9cff9c; } #bBelt:not(.on) { background: rgba(200,40,40,.7); }
   #gearInd { font-size: 26px; font-weight: 900; color: #ffd54f; min-width: 22px; text-align: center; }
   @media (orientation: portrait) { #dash { bottom: auto; top: 60px; } }
   #game.cabin .msg { top: calc(min(30vw, 360px) / 3.2 + 30px); max-width: 56%; }
@@ -93,11 +96,12 @@
       <text x="60" y="102" fill="#888" font-size="9" text-anchor="middle">km/soat</text>
       <line id="needle" x1="60" y1="60" x2="60" y2="14" stroke="#ff3b30" stroke-width="3" stroke-linecap="round" transform="rotate(-120 60 60)"/>
       <circle cx="60" cy="60" r="5" fill="#ddd"/></svg>
-    <div><div id="gearInd">P</div><span class="tl" id="tlB" title="Tormoz">⓿</span></div>
+    <div><div id="gearInd">P</div><span class="tl" id="tlB" title="Tormoz">⓿</span><span class="tl" id="tlS" title="Kamar taqilmagan"><svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="4.2" r="2.7" fill="currentColor"/><path d="M6.5 9.5Q12 7.5 17.5 9.5L16.5 18H7.5Z" fill="currentColor"/><path d="M8 8.6L15.6 17.6" stroke="#111" stroke-width="2"/><rect x="5" y="19" width="14" height="2.4" rx="1" fill="currentColor"/></svg></span></div>
     <span class="tl" id="tlR">➡</span>
   </div>
   <div class="sigs"><button class="ctlb" style="position:static" id="bSigL" onclick="Drive.signal('L')">⬅</button>
     <button class="ctlb" style="position:static" id="bHorn">📯</button>
+    <button class="ctlb" style="position:static" id="bBelt" onclick="Drive.belt()"><svg viewBox="0 0 24 24" width="24" height="24"><circle cx="12" cy="4.2" r="2.7" fill="currentColor"/><path d="M6.5 9.5Q12 7.5 17.5 9.5L16.5 18H7.5Z" fill="currentColor"/><path d="M8 8.6L15.6 17.6" stroke="#111" stroke-width="2"/><rect x="5" y="19" width="14" height="2.4" rx="1" fill="currentColor"/></svg></button>
     <button class="ctlb" style="position:static" id="bSigR" onclick="Drive.signal('R')">➡</button></div>
   <div id="wheelBox"><svg id="wheel" viewBox="0 0 200 200">
     <circle cx="100" cy="100" r="88" fill="none" stroke="#1d1f23" stroke-width="20"/>
@@ -247,8 +251,8 @@ function carSelect() {
       <div><b>${c.name}${c.model ? " · 3D model" : ""}</b><span>${c.len.toFixed(2)} × ${c.wid.toFixed(2)} m · ${{ sedan: "sedan", hatch: "xetchbek", van: "miniven" }[c.type]}</span></div></button>`).join("")}
     <div class="explain">🎮 <b>Boshqaruv — haqiqiy mashinadek:</b> chapda rul g'ildiragi (barmoq bilan aylantiring), o'ngda <b>GAZ</b> va <b>TORMOZ</b> pedallari
       (qanchalik pastroq bossangiz, shunchalik kuchli). Avtomat uzatma: <b>P</b> — turish, <b>R</b> — orqaga, <b>N</b> — neytral, <b>D</b> — oldinga;
-      almashtirish uchun to'xtab, tormozni bosib turing. ⬅ ➡ — burilish chiroqlari (YHQ 45-band), 📯 — signal, 🎥 — kamera (kabina / orqadan / tepadan).
-      Telefonni gorizontal ushlang. Kompyuterda: ↑ gaz, ↓ tormoz, ← → rul, P R N D, Q/E povorotnik.</div>
+      almashtirish uchun to'xtab, tormozni bosib turing. 🔴 kamar tugmasi — xavfsizlik kamari (YHQ 9-band: harakatdan oldin taqiladi), ⬅ ➡ — burilish chiroqlari (YHQ 45-band), 📯 — signal, 🎥 — kamera (kabina / orqadan / tepadan).
+      Telefonni gorizontal ushlang. Kompyuterda: ↑ gaz, ↓ tormoz, ← → rul, P R N D, Q/E povorotnik, B kamar.</div>
     <button class="btn ghost" onclick="home()">Orqaga</button>
     <p style="font-size:12px">3D modellar (CC BY 4.0): Gentra — uzb_rx7, Malibu 2022 — slavanik24250794, Damas — own.guest,
       tartibga soluvchi — LokitoBlu (Sketchfab). Chevrolet nomlari GM kompaniyasining savdo belgilari.</p>`;
@@ -300,6 +304,7 @@ addEventListener("keydown", e => {
   else if ("prndPRND".includes(e.key) && e.key.length === 1) Drive.setGear(e.key.toUpperCase());
   else if (e.key === "q" || e.key === "e") { if (!e.repeat) Drive.signal(e.key === "q" ? "L" : "R"); }
   else if (e.key === "h") Drive.horn(true);
+  else if (e.key === "b" && !e.repeat) Drive.belt();
   else if (e.key === "c" && !e.repeat) Drive.toggleCam();
 });
 addEventListener("keyup", e => {
