@@ -1,0 +1,24 @@
+# Cloudflare Worker: "Yo'l qoidasi | Biz bilan osonroq" Telegram boti, Mini App va API.
+# Nomi Cloudflare'dagi Worker nomi bilan bir xil bo'lishi shart.
+name = "yoshlar-uchun"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+
+# Mini App fayllari (3D avtodrom, test). /api, /tg va /setup so'rovlari Worker kodiga boradi.
+[assets]
+directory = "../webapp"
+binding = "ASSETS"
+run_worker_first = ["/api/*", "/tg", "/setup"]
+
+# Foydalanuvchilar va to'lovlar bazasi: SQLite (bepul tarifda mavjud)
+[[durable_objects.bindings]]
+name = "STORE"
+class_name = "Store"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Store"]
+
+[vars]
+PRICE_STARS = "25"
+# BOT_TOKEN — maxfiy: Cloudflare → Worker → Settings → Variables and Secrets → Secret

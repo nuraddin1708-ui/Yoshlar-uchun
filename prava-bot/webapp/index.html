@@ -109,7 +109,9 @@ function home() {
 async function buy() {
   try {
     const { link } = await api("/api/invoice", {});
-    tg.openInvoice(link, async st => { if (st === "paid") { await load(); tg.showAlert("To'liq versiya ochildi! 🎉"); } });
+    tg.openInvoice(link, async st => { if (st !== "paid") return;
+      for (let i = 0; i < 8 && !(ME && ME.paid); i++) { await new Promise(r => setTimeout(r, 800)); try { ME = await api("/api/me"); } catch (e) {} }
+      await load(); tg.showAlert("To'liq versiya ochildi! 🎉"); });
   } catch (e) { tg ? tg.showAlert("To'lovni ochib bo'lmadi. Botdagi tugmadan foydalaning.") : alert("Xatolik"); }
 }
 

@@ -53,30 +53,34 @@ Telegram qoidalariga ko'ra, bot ichida sotiladigan raqamli mahsulot va xizmatlar
 
 > 5 000 so'm taxminan 25–30 Stars'ga to'g'ri keladi. Stars narxi o'zgarib turadi, shuning uchun `PRICE_STARS` ni o'zingiz sozlang.
 
-## Ishga tushirish (Railway)
+## Ishga tushirish (Cloudflare — bepul)
 
-Bot bitta jarayonda ishlaydi: Telegram'ni doimiy tinglaydi va Mini App sahifasini ham o'zi beradi. Shuning uchun server **uxlamasligi** va `users.db` (kim to'lagani) **doimiy diskda** turishi kerak. Railway ikkalasini ham beradi.
+Bot, Mini App va baza bitta **Cloudflare Worker**da ishlaydi (`worker/` papkasi). Kod GitHub'da turadi, Cloudflare uni har bir o'zgarishdan keyin o'zi yangilaydi. Bepul tarifda bot doim yoqiq, karta talab qilinmaydi.
+
+- `worker/src/index.js` — Telegram bot (webhook), Mini App API, to'lovlar (Stars)
+- Baza — Durable Object (SQLite), bepul tarifda mavjud
+- Mini App fayllari — `webapp/` papkasi, Worker o'zi beradi
+
+**Bir martalik sozlash:**
 
 1. **Bot yarating:** Telegram'da @BotFather → `/newbot` → tokenni oling. Tokenni hech kimga yubormang.
-2. **Railway:** [railway.com](https://railway.com) ga GitHub orqali kiring → *New Project* → *Deploy from GitHub repo* → `Yoshlar-uchun` reposi.
-3. **Service → Settings:**
-   - *Root Directory*: `prava-bot` (bot shu papkada; `Dockerfile` va `railway.json` avtomatik topiladi);
-   - *Networking → Generate Domain* — HTTPS manzil beriladi (`...up.railway.app`). Bot uni o'zi `WEBAPP_URL` sifatida oladi.
-4. **Volume (doimiy disk):** service ustida o'ng tugma → *Attach Volume* → *Mount path*: `/data`.
-5. **Variables:**
-   - `BOT_TOKEN` = BotFather bergan token;
-   - `DB_PATH` = `/data/users.db`;
-   - `PRICE_STARS` = `25` (yoki o'zingiz tanlagan narx).
-6. *Deploy* tugmasini bosing. *Deployments → Logs* da `Mini App serveri` yozuvi chiqsa, bot ishga tushgan.
-7. **Tekshirish:** Telegram'da botingizga `/start` yozing → "Ochish" tugmasi Mini App'ni ochadi.
-8. **Menyu tugmasi (ixtiyoriy):** @BotFather → `/mybots` → bot → *Bot Settings → Menu Button* → Railway manzili.
-9. **Instagram:** profil "bio"siga `https://t.me/BOT_NOMI` havolasini qo'ying.
+2. **Cloudflare:** [dash.cloudflare.com](https://dash.cloudflare.com) da email bilan ro'yxatdan o'ting.
+3. *Workers & Pages* → *Create* → *Import a repository* → GitHub'ni ulang → `Yoshlar-uchun` reposini tanlang.
+4. Sozlamalar:
+   - *Project name*: `yoshlar-uchun` (`worker/wrangler.toml` dagi `name` bilan bir xil bo'lishi shart);
+   - *Advanced settings → Root directory*: `prava-bot/worker`;
+   - *Deploy command*: `npx wrangler deploy` (odatiy qiymat).
+   *Deploy* ni bosing.
+5. Worker → *Settings → Variables and Secrets* → *Add* → turi **Secret**, nomi `BOT_TOKEN`, qiymati — token → *Deploy*.
+6. Brauzerda bir marta oching: `https://yoshlar-uchun.<sizning-subdomeningiz>.workers.dev/setup`. "✅ Tayyor!" chiqsa, webhook, menyu tugmasi va buyruqlar o'rnatildi.
+7. Telegram'da botga `/start` yozing.
+8. **Instagram:** profil "bio"siga `https://t.me/BOT_NOMI` havolasini qo'ying.
 
-> Narx: Railway bepul sinov krediti beradi, keyin *Hobby* tarifi oyiga taxminan 5 $ (railway.com/pricing da tekshiring). Render'ning bepul tarifi bu bot uchun mos emas: 15 daqiqa so'rov bo'lmasa uxlaydi va diskni saqlamaydi, ya'ni to'lovlar yo'qolib ketadi.
+**Narxni o'zgartirish:** `worker/wrangler.toml` dagi `PRICE_STARS`.
 
-Boshqa server (VPS) ham bo'ladi: `docker build -t prava . && docker run -d --restart=always -v prava-data:/data -e BOT_TOKEN=... -e WEBAPP_URL=https://domen/ -e DB_PATH=/data/users.db -p 8080:8080 prava` va oldiga HTTPS (Caddy yoki Nginx).
+**Lokal sinov:** `cd worker && npm install`, `.dev.vars` faylga `BOT_TOKEN=...` va `DEV=1` yozing, `npx wrangler dev`, keyin `http://localhost:8787/?dev=1`.
 
-Lokal sinov (Telegram'siz): `DEV=1 python3 app.py`, keyin brauzerda `http://localhost:8080/?dev=1` ni oching.
+`app.py` va `Dockerfile` — o'z serveringiz (VPS) uchun muqobil variant: `docker run -d --restart=always -v prava-data:/data -e BOT_TOKEN=... -e WEBAPP_URL=https://domen/ -p 8080:8080 ...` va oldiga HTTPS.
 
 ## Savollar bazasi
 
@@ -95,9 +99,10 @@ Savollar `questions.json` faylida. Har bir savol:
 
 ## Fayllar
 
-- `app.py` — bot, to'lov va Mini App uchun server (API)
+- `app.py` — o'z serveringiz uchun muqobil server (Python)
 - `webapp/index.html` — Mini App: bosh sahifa va test
 - `webapp/avtodrom3d.js` — 3D avtodrom
 - `questions.json` — savollar bazasi
 - `users.db` — foydalanuvchilar va to'lovlar (avtomatik yaratiladi, joyi `DB_PATH` bilan beriladi; zaxira nusxasini saqlang)
-- `Dockerfile`, `railway.json` — serverga joylash uchun
+- `worker/` — Cloudflare Worker (asosiy server)
+- `Dockerfile` (repo ildizida) — VPS uchun muqobil
