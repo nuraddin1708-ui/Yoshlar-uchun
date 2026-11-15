@@ -1,4 +1,4 @@
-# Prava Mashq — Telegram bot
+# Yo'l qoidasi | Biz bilan osonroq — Telegram bot
 
 Telegram bot va uning ichida ochiladigan Mini App: **3D avtodrom** va **yo'l harakati qoidalari testi**.
 

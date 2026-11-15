@@ -1,4 +1,4 @@
-"""Prava Mashq: Telegram bot + Mini App (avtodrom o'yini va test).
+"""Yo'l qoidasi | Biz bilan osonroq: Telegram bot + Mini App (avtodrom o'yini va test).
 
 Ishga tushirish: python3 app.py   (sozlamalar .env faylida — README.md ga qarang)
 """
@@ -132,7 +132,7 @@ async def api_invoice(request):
 
 def invoice_args(uid):
     from aiogram.types import LabeledPrice
-    return dict(title="Prava Mashq — to'liq versiya",
+    return dict(title="Yo'l qoidasi — to'liq versiya",
                 description=f"Barcha {len(QUESTIONS)} savol, imtihon rejimi va avtodrom — cheksiz.",
                 payload=f"full:{uid}", currency="XTR",
                 prices=[LabeledPrice(label="To'liq versiya", amount=PRICE_STARS)])
@@ -172,7 +172,8 @@ def make_bot():
         status = "✅ To'liq versiya ochilgan." if u["paid"] else (
             f"Bepul: {FREE_QUESTIONS} ta savol va avtodromda mashq.\n"
             f"To'liq versiya: barcha {len(QUESTIONS)} savol va imtihon rejimi.")
-        await m.answer(f"Assalomu alaykum, {m.from_user.first_name}! 👋\n\n"
+        await m.answer(f"Assalomu alaykum, {m.from_user.first_name}! 👋\n"
+                       "🚦 Yo'l qoidasi — biz bilan osonroq!\n\n"
                        "Prava imtihoniga tayyorlaning: avtodromda mashina haydang va testlarni yeching.\n\n"
                        f"{status}", reply_markup=menu(m.from_user.id))
 

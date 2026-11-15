@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Prava Mashq</title>
+<title>Yo'l qoidasi | Biz bilan osonroq</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
   :root {
@@ -16,6 +16,7 @@
   body { margin: 0; background: var(--bg); color: var(--text); font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
   .wrap { max-width: 560px; margin: 0 auto; padding: 14px; }
   h1 { font-size: 24px; margin: 6px 0; } h2 { font-size: 18px; line-height: 1.35; margin: 10px 0 14px; }
+  .slogan { margin: -4px 0 10px; color: var(--hint, #8a94a6); font-weight: 600; letter-spacing: .3px; }
   p { color: var(--muted); line-height: 1.5; margin: 6px 0; }
   button { font: inherit; cursor: pointer; border: 0; border-radius: 12px; }
   .btn { width: 100%; padding: 14px; font-size: 16px; font-weight: 600; background: var(--primary); color: var(--ptext); margin-top: 10px; }
@@ -81,17 +82,18 @@ async function api(path, body) {
 }
 
 async function load() {
-  if (!INIT) { app.innerHTML = `<h1>Prava Mashq</h1><p>Bu ilovani Telegram bot orqali oching.</p>`; return; }
+  if (!INIT) { app.innerHTML = `<h1>🚦 Yo'l qoidasi</h1><p>Bu ilovani Telegram bot orqali oching.</p>`; return; }
   try { ME = await api("/api/me"); const d = await api("/api/questions"); QS = d.questions; TOTAL = d.total; home(); }
   catch (e) { app.innerHTML = `<h1>Xatolik</h1><p>Ma'lumot yuklanmadi. Botni qayta oching.</p>`; }
 }
 
 function home() {
   app.innerHTML = `
-    <h1>🚗 Prava Mashq</h1>
+    <h1>🚦 Yo'l qoidasi</h1>
+    <p class="slogan">Biz bilan osonroq</p>
     <p>Salom, ${ME.name || "do'st"}! ${ME.paid ? `<span class="badge">To'liq versiya</span>` : ""}</p>
     <button class="tile" onclick="carSelect()"><span class="ic">🏁</span><div><b>Avtodrom</b>
-      <span>3D: ilon, estakada, garajga orqa bilan kirish</span></div></button>
+      <span>3D: "B" toifaning 12 ta rasmiy mashqi</span></div></button>
     <button class="tile" onclick="Test.start('practice')"><span class="ic">📘</span><div><b>Mashq testi</b>
       <span>${QS.length} ta savol, izohlar bilan</span></div></button>
     <button class="tile" onclick="${ME.paid ? "Test.start('exam')" : "buy()"}"><span class="ic">⏱</span><div><b>Imtihon ${ME.paid ? "" : "🔒"}</b>
