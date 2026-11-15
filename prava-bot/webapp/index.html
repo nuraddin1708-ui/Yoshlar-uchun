@@ -57,7 +57,7 @@
 
 <div id="game">
   <canvas id="cv"></canvas>
-  <div class="hud"><span id="hTime">⏱ 0.0</span><span id="hStep">1/3</span><span id="hPen">Jarima: 0</span></div>
+  <div class="hud"><span id="hTime">⏱ 0.0</span><span id="hStep">1/12</span><span id="hPen">Xato: 0/3</span></div>
   <div class="msg" id="hMsg"></div>
   <button class="exit" onclick="Drive.stop(true)">✕ Chiqish</button>
   <button class="cam" onclick="Drive.toggleCam()">🎥</button>
@@ -162,7 +162,7 @@ const Test = {
     tg && tg.HapticFeedback && tg.HapticFeedback.notificationOccurred(k === q.a ? "success" : "error");
     if (s.mode === "exam" && s.err > 2) return setTimeout(() => this.finish("2 tadan ko'p xato"), 800);
     const last = s.i === s.list.length - 1;
-    document.getElementById("after").innerHTML = (s.mode === "practice" ? `<div class="explain">💡 ${q.e}</div>` : "") +
+    document.getElementById("after").innerHTML = (s.mode === "practice" ? `<div class="explain">💡 ${q.e}${q.src ? `<br><small>📖 Manba: YHQ, ${q.src}</small>` : ""}</div>` : "") +
       `<button class="btn" onclick="Test.next()">${last ? "Natija" : "Keyingisi →"}</button>`;
   },
   next() { const s = this.st; if (s.i === s.list.length - 1) return this.finish(); s.i++; this.render(); },
@@ -187,7 +187,11 @@ function carSelect() {
   if (!window.Drive) { app.innerHTML = `<p>3D avtodrom yuklanmoqda...</p>`; return setTimeout(carSelect, 400); }
   app.innerHTML = `
     <h1>🏁 Avtodrom</h1>
-    <p>Mashinani tanlang. Mashqlar: "ilon", estakadada to'xtab yurish, garajga orqa bilan kirish.</p>
+    <p>Mashinani tanlang. "B" toifa avtodromi IIV 27-son buyrug'idagi (2024) talablar bo'yicha qurilgan: 12 ta mashq rasmiy ketma-ketlikda,
+      yo'laklar o'lchami tanlangan mashinaning uzunligi va kengligiga qarab hisoblanadi.</p>
+    <div class="explain">📋 <b>Mashqlar:</b> 1) START; 2) piyodalar o'tish joyi; 3) estakada; 4) 90° burilishlar; 5) tor joyda qayrilib olish (boks);
+      6) svetoforli chorraha; 7) ilon izi; 8) parallel parkovka; 9) temir yo'l kesishmasi; 10) tezlashish bo'lagi; 11) avariya holatda to'xtash; 12) FINISH.
+      Avtodromda tezlik — 20 km/soatgacha.</div>
     ${Object.entries(CARS).map(([id, c]) => `<button class="tile" onclick="Drive.start('${id}')">
       <span class="ic" style="width:34px;height:22px;border-radius:6px;background:#${c.color.toString(16).padStart(6, "0")};border:1px solid #888"></span>
       <div><b>${c.name}${c.model ? " · 3D model" : ""}</b><span>${c.len.toFixed(2)} × ${c.wid.toFixed(2)} m · ${{ sedan: "sedan", hatch: "xetchbek", van: "miniven" }[c.type]}</span></div></button>`).join("")}
@@ -201,8 +205,8 @@ function showDriveResult(passed, reason, time, pen, limit) {
   app.innerHTML = `
     <h1>${passed ? "🎉 Avtodromdan o'tdingiz!" : "😕 Avtodromdan o'ta olmadingiz"}</h1>
     ${reason ? `<p>Sabab: ${reason}</p>` : ""}
-    <div class="stats"><div class="stat"><b>${time} s</b>vaqt</div><div class="stat"><b>${pen}</b>jarima ballari</div></div>
-    <p>O'tish sharti: uchala mashqni bajarish va ${limit} tadan ko'p jarima olmaslik.</p>
+    <div class="stats"><div class="stat"><b>${time} s</b>vaqt</div><div class="stat"><b>${pen}</b>xato</div></div>
+    <p>O'tish sharti (o'yin qoidasi): 12 ta mashqni bajarish va ${limit} ta xatoga yetkazmaslik.</p>
     <button class="btn" onclick="Drive.start()">Qaytadan</button>
     <button class="btn ghost" onclick="carSelect()">Boshqa mashina</button>
     <button class="btn ghost" onclick="home()">Bosh sahifa</button>`;

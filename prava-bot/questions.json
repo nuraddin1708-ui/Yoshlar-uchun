@@ -10,7 +10,8 @@
   "a": 1,
   "e": "\"To'xtamasdan harakatlanish taqiqlangan\" belgisi: yo'l bo'sh bo'lsa ham albatta to'xtash shart.",
   "t": "Belgilar",
-  "id": 1
+  "id": 1,
+  "src": "1-ilova, 2.5-belgi"
  },
  {
   "s": "giveway",
@@ -23,7 +24,8 @@
   "a": 0,
   "e": "\"Yo'l bering\" belgisi: kesishuvda kesib o'tilayotgan yo'ldagi transportga yo'l berasiz.",
   "t": "Belgilar",
-  "id": 2
+  "id": 2,
+  "src": "1-ilova, 2.4-belgi"
  },
  {
   "s": "noentry",
@@ -36,7 +38,8 @@
   "a": 1,
   "e": "Qizil doira ichidagi oq to'g'ri to'rtburchak — \"Kirish taqiqlangan\".",
   "t": "Belgilar",
-  "id": 3
+  "id": 3,
+  "src": "1-ilova, 3.1-belgi"
  },
  {
   "s": "warning",
@@ -49,7 +52,8 @@
   "a": 2,
   "e": "Uchburchak shaklidagi qizil hoshiyali belgilar oldinda xavfli joy borligidan ogohlantiradi.",
   "t": "Belgilar",
-  "id": 4
+  "id": 4,
+  "src": "1-ilova, 1-bo'lim (ogohlantiruvchi belgilar)"
  },
  {
   "s": "straight",
@@ -62,7 +66,8 @@
   "a": 0,
   "e": "Ko'k doira shaklidagi belgilar buyuruvchi belgilardir — ko'rsatilgan yo'nalishda harakatlanish majburiy.",
   "t": "Belgilar",
-  "id": 5
+  "id": 5,
+  "src": "1-ilova, 4.1.1-belgi"
  },
  {
   "s": "crossing",
@@ -75,7 +80,8 @@
   "a": 1,
   "e": "Ko'k kvadrat ichidagi oq uchburchakda piyoda tasviri — \"Piyodalar o'tish joyi\".",
   "t": "Belgilar",
-  "id": 6
+  "id": 6,
+  "src": "1-ilova, 5.16.1-belgi; 1-bo'lim, 1.20"
  },
  {
   "s": "redlight",
@@ -88,7 +94,8 @@
   "a": 1,
   "e": "Qizil signal harakatni taqiqlaydi. To'xtash chizig'i oldida to'xtash kerak.",
   "t": "Belgilar",
-  "id": 7
+  "id": 7,
+  "src": "31, 41-bandlar"
  },
  {
   "s": "yellow",
@@ -99,9 +106,10 @@
    "Faqat o'ngga burilish mumkin"
   ],
   "a": 0,
-  "e": "Miltillovchi sariq signal chorraha svetofor bilan tartibga solinmaganini bildiradi — belgilar va qoidalarga ko'ra harakatlaniladi.",
+  "e": "Miltillovchi sariq ishora ehtiyotkorlik choralarini ko'rgan holda harakatlanishga ruxsat beradi va tartibga solinmagan chorraha yoki piyodalar o'tish joyi borligidan xabardor qiladi.",
   "t": "Belgilar",
-  "id": 8
+  "id": 8,
+  "src": "31, 98-bandlar"
  },
  {
   "q": "Teng ahamiyatli yo'llar kesishgan chorrahada kimga yo'l berish kerak?",
@@ -113,7 +121,8 @@
   "a": 1,
   "e": "Teng ahamiyatli yo'llar chorrahasida o'ng tomondan yaqinlashayotgan transport vositasiga yo'l beriladi.",
   "t": "Chorrahalar",
-  "id": 9
+  "id": 9,
+  "src": "105-band"
  },
  {
   "q": "Ko'k chiroq va maxsus ovozli signal yoqilgan tez yordam mashinasi yaqinlashyapti. Nima qilasiz?",
@@ -125,19 +134,21 @@
   "a": 1,
   "e": "Maxsus signallari yoqilgan transport vositasiga yo'l berish majburiy.",
   "t": "Maxsus transport",
-  "id": 10
+  "id": 10,
+  "src": "26-band"
  },
  {
-  "q": "Xavfsizlik kamarini kim taqishi shart?",
+  "q": "Konstruksiyasida xavfsizlik kamari nazarda tutilgan avtomobilda kim kamarni taqishi shart?",
   "o": [
    "Faqat haydovchi",
-   "Haydovchi va kamar o'rnatilgan o'rindiqlardagi yo'lovchilar",
-   "Faqat shahardan tashqarida"
+   "Haydovchi va old o'rindiqdagi yo'lovchilar",
+   "Faqat shahardan tashqarida hamma"
   ],
   "a": 1,
-  "e": "Kamar o'rnatilgan bo'lsa, haydovchi ham, yo'lovchilar ham uni taqishi shart.",
+  "e": "Haydovchi va uning old o'rindig'idagi yo'lovchilar harakatni boshlashdan oldin xavfsizlik kamarini taqishlari shart.",
   "t": "Xavfsizlik",
-  "id": 11
+  "id": 11,
+  "src": "9-band"
  },
  {
   "q": "Alkogol ichgan holda transport vositasini boshqarish mumkinmi?",
@@ -149,7 +160,8 @@
   "a": 1,
   "e": "Mast holatda transport vositasini boshqarish qat'iyan taqiqlanadi.",
   "t": "Xavfsizlik",
-  "id": 12
+  "id": 12,
+  "src": "12-band"
  },
  {
   "q": "Harakatlanish vaqtida telefonda gaplashish mumkinmi?",
@@ -161,7 +173,8 @@
   "a": 1,
   "e": "Haydash paytida telefonni qo'lda ushlab gaplashish taqiqlanadi. Faqat qo'l bilan ushlashni talab qilmaydigan qurilma orqali mumkin.",
   "t": "Xavfsizlik",
-  "id": 13
+  "id": 13,
+  "src": "12-band"
  },
  {
   "q": "Quvib o'tish (obgon) odatda qaysi tomondan amalga oshiriladi?",
@@ -173,7 +186,8 @@
   "a": 1,
   "e": "O'ng tomonlama harakatlanishda quvib o'tish chap tomondan amalga oshiriladi.",
   "t": "Manyovr",
-  "id": 14
+  "id": 14,
+  "src": "82, 83-bandlar"
  },
  {
   "q": "Piyodalar o'tish joyida quvib o'tish mumkinmi?",
@@ -185,19 +199,21 @@
   "a": 1,
   "e": "Piyodalar o'tish joylarida quvib o'tish taqiqlanadi.",
   "t": "Manyovr",
-  "id": 15
+  "id": 15,
+  "src": "86-band"
  },
  {
-  "q": "Tunnelda harakatlanayotganda qaysi chiroqlar yoqilgan bo'lishi kerak?",
+  "q": "Tunnelda harakatlanayotgan avtomobilda qaysi yoritish asboblari yoqilgan bo'lishi kerak?",
   "o": [
-   "Hech qaysi",
-   "Yaqinni yorituvchi chiroqlar",
-   "Faqat avariya signali"
+   "Hech qaysi, agar tunnel yoritilgan bo'lsa",
+   "Uzoqni yoki yaqinni yorituvchi fara chiroqlari (yo'l yoritilganidan qat'i nazar)",
+   "Faqat avariya ishorasi"
   ],
   "a": 1,
-  "e": "Tunnelda yaqinni yorituvchi chiroqlar yoqiladi.",
+  "e": "Tunnellarda yo'lning yoritilganligidan qat'i nazar, mexanik transport vositalarida uzoqni yoki yaqinni yorituvchi fara chiroqlari yoqilgan bo'lishi kerak.",
   "t": "Chiroqlar",
-  "id": 16
+  "id": 16,
+  "src": "134-band"
  },
  {
   "q": "Yo'l-transport hodisasi sodir bo'lganda birinchi navbatda nima qilish kerak?",
@@ -209,7 +225,8 @@
   "a": 1,
   "e": "Hodisa joyida to'xtash, avariya signalini yoqish va ogohlantirish uchburchagini qo'yish kerak.",
   "t": "YTH",
-  "id": 17
+  "id": 17,
+  "src": "13, 51-bandlar"
  },
  {
   "s": "rail",
@@ -222,31 +239,21 @@
   "a": 1,
   "e": "Svetoforning qizil signali yoki shlagbaum yopiq bo'lsa, temir yo'l kesishmasidan o'tish taqiqlanadi.",
   "t": "Temir yo'l",
-  "id": 18
+  "id": 18,
+  "src": "31, 37, 118-bandlar"
  },
  {
-  "q": "Ho'l yo'lda tormozlanish masofasi qanday o'zgaradi?",
+  "q": "Yetarlicha ko'rinmaydigan sharoitda (masalan, tumanda) tumanga qarshi fara chiroqlaridan foydalanish mumkinmi?",
   "o": [
-   "Qisqaradi",
-   "O'zgarmaydi",
-   "Uzayadi"
+   "Mumkin emas",
+   "Mumkin: alohida yoki uzoqni/yaqinni yorituvchi fara chiroqlari bilan birga",
+   "Faqat kunduzi va quruq havoda"
   ],
-  "a": 2,
-  "e": "Ho'l yo'lda g'ildiraklarning yo'lga ilashishi kamayadi, shuning uchun tormozlanish masofasi uzayadi.",
+  "a": 1,
+  "e": "Yetarlicha ko'rinmaydigan sharoitda tumanga qarshi fara chiroqlaridan alohida, shuningdek uzoqni yoki yaqinni yorituvchi fara chiroqlari bilan birga foydalanish mumkin.",
   "t": "Yo'l sharoiti",
-  "id": 19
- },
- {
-  "q": "Tuman paytida qanday harakatlanish kerak?",
-  "o": [
-   "Tezlikni pasaytirib, masofani oshirish kerak",
-   "Uzoqni yorituvchi chiroqni yoqish kerak",
-   "Odatdagidek"
-  ],
-  "a": 0,
-  "e": "Ko'rinish yomon bo'lganda tezlik pasaytiriladi va oldingi mashinagacha masofa oshiriladi.",
-  "t": "Yo'l sharoiti",
-  "id": 20
+  "id": 19,
+  "src": "137-band"
  },
  {
   "s": "crossing",
@@ -259,7 +266,8 @@
   "a": 1,
   "e": "Tartibga solinmagan piyodalar o'tish joyida haydovchi piyodalarga yo'l berishi shart.",
   "t": "Piyodalar",
-  "id": 21
+  "id": 20,
+  "src": "109-band"
  },
  {
   "q": "Velosipedchi chap qo'lini yon tomonga to'g'ri uzatdi. Bu qanday signal?",
@@ -271,7 +279,8 @@
   "a": 0,
   "e": "Chap qo'lni yon tomonga uzatish chapga burilish signalidir.",
   "t": "Signallar",
-  "id": 22
+  "id": 21,
+  "src": "45-band"
  },
  {
   "s": "solid",
@@ -284,20 +293,22 @@
   "a": 1,
   "e": "Uzluksiz chiziqni kesib o'tish taqiqlanadi.",
   "t": "Yo'l chiziqlari",
-  "id": 23
+  "id": 22,
+  "src": "2-ilova, 1.1 va 1.3 chiziqlar"
  },
  {
   "s": "dashed",
   "q": "Uzuq-uzuq chiziqni kesib o'tish mumkinmi?",
   "o": [
    "Mumkin emas",
-   "Xavfsiz bo'lsa, mumkin",
+   "Mumkin — istalgan tomondan, xavfsizlikka ishonch hosil qilib",
    "Faqat kechasi mumkin"
   ],
   "a": 1,
-  "e": "Uzuq-uzuq chiziqni xavfsizlikka ishonch hosil qilgan holda kesib o'tish mumkin.",
+  "e": "1.5 — 1.8 chiziqlarini istalgan tomondan bosib o'tish mumkin; manyovr boshqa harakat qatnashchilariga xavf tug'dirmasligi kerak.",
   "t": "Yo'l chiziqlari",
-  "id": 24
+  "id": 23,
+  "src": "2-ilova, 1.5 — 1.8 chiziqlar"
  },
  {
   "q": "Haydovchi charchaganini sezsa, nima qilishi kerak?",
@@ -309,7 +320,8 @@
   "a": 1,
   "e": "Charchoq reaksiyani sekinlashtiradi. Xavfsiz joyda to'xtab dam olish kerak.",
   "t": "Xavfsizlik",
-  "id": 25
+  "id": 24,
+  "src": "12-band"
  },
  {
   "q": "Asosiy svetofor qizil, qo'shimcha seksiyada esa yashil strelka yonib turibdi. Nima qilish mumkin?",
@@ -321,7 +333,8 @@
   "a": 0,
   "e": "Qo'shimcha seksiyadagi yashil strelka strelka yo'nalishida harakatlanishga ruxsat beradi, bunda boshqa yo'nalishlardan kelayotganlarga yo'l beriladi.",
   "t": "Svetofor",
-  "id": 26
+  "id": 25,
+  "src": "100-band"
  },
  {
   "q": "Aholi punktlarida ovozli signaldan qachon foydalanish mumkin?",
@@ -333,7 +346,8 @@
   "a": 1,
   "e": "Aholi punktlarida ovozli signal faqat hodisaning oldini olish zarur bo'lganda beriladi.",
   "t": "Signallar",
-  "id": 27
+  "id": 26,
+  "src": "48-band"
  },
  {
   "q": "Safarga chiqishdan oldin haydovchi nimani tekshirishi kerak?",
@@ -345,7 +359,8 @@
   "a": 1,
   "e": "Harakatlanishdan oldin transport vositasining texnik sozligini tekshirish haydovchining majburiyatidir.",
   "t": "Texnik holat",
-  "id": 28
+  "id": 27,
+  "src": "11-band \"a\" kichik bandi"
  },
  {
   "q": "Chorrahaga yaqinlashganda svetoforning sariq signali yondi, to'xtash chizig'igacha esa juda kam masofa qoldi. Keskin tormoz bermasdan to'xtay olmaysiz. Nima qilasiz?",
@@ -357,7 +372,8 @@
   "a": 0,
   "e": "Sariq signal yonganda keskin tormoz bermasdan to'xtay olmaydigan haydovchiga harakatni davom ettirishga ruxsat beriladi.",
   "t": "Svetofor",
-  "id": 29
+  "id": 28,
+  "src": "42-band"
  },
  {
   "q": "Avtomagistralda orqaga yurish mumkinmi?",
@@ -369,7 +385,8 @@
   "a": 1,
   "e": "Avtomagistrallarda orqaga yurish va qayrilib olish taqiqlanadi.",
   "t": "Magistral",
-  "id": 30
+  "id": 29,
+  "src": "121-band"
  },
  {
   "t": "Manyovr",
@@ -381,7 +398,8 @@
   ],
   "a": 1,
   "e": "Burilish, qatorni almashtirish va qayrilishdan oldin burilish ko'rsatkichi oldindan yoqiladi.",
-  "id": 31
+  "id": 30,
+  "src": "45, 46-bandlar"
  },
  {
   "t": "Chiroqlar",
@@ -392,20 +410,22 @@
    "Chiroqlarni butunlay o'chiraman"
   ],
   "a": 1,
-  "e": "Qarama-qarshi haydovchining ko'zini qamashtirmaslik uchun yaqinni yorituvchi chiroqqa o'tiladi.",
-  "id": 32
+  "e": "Qarama-qarshi yo'nalishdagi transport vositasigacha kamida 150 metr masofa qolganda uzoqni yorituvchi fara chiroqlari o'rniga yaqinni yorituvchi fara chiroqlari yoqilishi kerak.",
+  "id": 31,
+  "src": "135-band"
  },
  {
   "t": "Piyodalar",
-  "q": "Bekatda \"Bolalarni tashish\" belgili avtobus avariya signali yoqilgan holda turibdi. Nima qilasiz?",
+  "q": "\"Bolalar guruhini tashish\" taniqlik belgisi o'rnatilgan, avariya ishorasi yoqilgan transport vositasi to'xtab turibdi. Unga yaqinlashayotgan haydovchi nima qilishi shart?",
   "o": [
    "Tezlikni oshirib o'tib ketaman",
    "Tezlikni pasaytiraman, zarur bo'lsa to'xtab, bolalarni o'tkazib yuboraman",
    "Signal berib o'taman"
   ],
   "a": 1,
-  "e": "Bolalar to'satdan yo'lga chiqib qolishi mumkin, shuning uchun tezlik pasaytiriladi va kerak bo'lsa to'xtaladi.",
-  "id": 33
+  "e": "Haydovchi harakat tezligini kamaytirishi, zarur bo'lsa to'xtashi va bolalarni o'tkazib yuborishi shart.",
+  "id": 32,
+  "src": "115-band"
  },
  {
   "t": "Chorrahalar",
@@ -417,7 +437,8 @@
   ],
   "a": 1,
   "e": "Tirbandlik tufayli chorrahada to'xtab qolib, boshqalarning harakatiga to'sqinlik qiladigan bo'lsa, chorrahaga kirish taqiqlanadi.",
-  "id": 34
+  "id": 33,
+  "src": "97-band"
  },
  {
   "t": "Tartibga soluvchi",
@@ -429,7 +450,8 @@
   ],
   "a": 1,
   "e": "Tartibga soluvchining ko'rsatmalari svetofor signallari va yo'l belgilaridan ustun turadi.",
-  "id": 35
+  "id": 34,
+  "src": "43-band"
  },
  {
   "t": "Tartibga soluvchi",
@@ -440,20 +462,22 @@
    "Faqat piyodalar yurishi mumkin"
   ],
   "a": 1,
-  "e": "Qo'l yuqoriga ko'tarilgani barcha harakat qatnashchilari uchun harakat taqiqlanganini bildiradi (to'xtay olmaydigan haydovchilardan tashqari).",
-  "id": 36
+  "e": "Tartibga soluvchi qo'lini yuqoriga ko'targanda transport vositalari va piyodalarning barcha yo'nalishlarda harakatlanishi taqiqlanadi (keskin tormozsiz to'xtay olmaydigan haydovchilardan tashqari).",
+  "id": 35,
+  "src": "38-band"
  },
  {
   "t": "Belgilar",
-  "q": "Yo'l ishlari olib borilayotgan joyda sariq fonli vaqtinchalik belgi doimiy belgiga zid. Qaysi biriga amal qilasiz?",
+  "q": "Vaqtincha (ko'chma tirgakdagi) yo'l belgisi doimiy belgiga ma'no jihatidan zid. Qaysi biriga amal qilasiz?",
   "o": [
    "Doimiy belgiga",
    "Vaqtinchalik belgiga",
    "Ikkalasiga ham emas"
   ],
   "a": 1,
-  "e": "Vaqtinchalik belgilar va doimiy belgilar zid kelganda vaqtinchalik belgilarga amal qilinadi.",
-  "id": 37
+  "e": "Vaqtincha (ko'chma tirgakdagi) va doimiy belgilar zid kelganda haydovchilar vaqtincha o'rnatilgan belgilarga amal qilishlari kerak.",
+  "id": 36,
+  "src": "1-ilova (vaqtincha va doimiy belgilar)"
  },
  {
   "t": "Piyodalar",
@@ -465,7 +489,8 @@
   ],
   "a": 1,
   "e": "Yo'lni kesib o'tishni tugatayotgan piyodalarga yo'l berish shart.",
-  "id": 38
+  "id": 37,
+  "src": "103, 111-bandlar"
  },
  {
   "t": "Manyovr",
@@ -477,7 +502,8 @@
   ],
   "a": 1,
   "e": "Orqaga yurish xavfsiz bo'lishi va boshqa harakat qatnashchilariga xalaqit bermasligi kerak. Ko'rinish yomon bo'lsa, boshqa odamdan yordam so'raladi.",
-  "id": 39
+  "id": 38,
+  "src": "63-band"
  },
  {
   "t": "Signallar",
@@ -489,7 +515,8 @@
   ],
   "a": 0,
   "e": "Avariya signali yo'l-transport hodisasida, to'xtash taqiqlangan joyda majburiy to'xtaganda va boshqa xavfli vaziyatlarda yoqiladi.",
-  "id": 40
+  "id": 39,
+  "src": "50-band"
  },
  {
   "t": "Texnik holat",
@@ -501,7 +528,8 @@
   ],
   "a": 1,
   "e": "Ishchi tormoz tizimi nosoz bo'lsa, harakatlanish taqiqlanadi.",
-  "id": 41
+  "id": 40,
+  "src": "12-band"
  },
  {
   "t": "Manyovr",
@@ -513,7 +541,8 @@
   ],
   "a": 1,
   "e": "Bir tomonlama yo'lda transport vositalari faqat belgilangan bir yo'nalishda harakatlanadi.",
-  "id": 42
+  "id": 41,
+  "src": "1-ilova, 5.5-belgi"
  },
  {
   "t": "Piyodalar",
@@ -525,7 +554,8 @@
   ],
   "a": 1,
   "e": "Trotuarlar va piyodalar yo'lakchalarida harakatlanish taqiqlanadi (alohida ruxsat etilgan hollardan tashqari).",
-  "id": 43
+  "id": 42,
+  "src": "72-band"
  },
  {
   "t": "Manyovr",
@@ -537,31 +567,8 @@
   ],
   "a": 1,
   "e": "Ko'rinish cheklangan joylarda quvib o'tish qarama-qarshi tomondan kelayotgan transport bilan to'qnashish xavfi tufayli taqiqlanadi.",
-  "id": 44
- },
- {
-  "t": "Yo'l sharoiti",
-  "q": "Muzlagan yo'lda qanday tormozlash to'g'ri?",
-  "o": [
-   "Keskin va kuchli",
-   "Ravon va ehtiyotkorlik bilan",
-   "Faqat qo'l tormozi bilan"
-  ],
-  "a": 1,
-  "e": "Muzli yo'lda keskin tormozlash sirpanishga olib keladi. Tormoz ravon bosiladi.",
-  "id": 45
- },
- {
-  "t": "Texnik holat",
-  "q": "Shina protektori yeyilib ketsa nima bo'ladi?",
-  "o": [
-   "Tormozlanish masofasi uzayadi, ayniqsa ho'l yo'lda",
-   "Hech narsa o'zgarmaydi",
-   "Yoqilg'i tejaladi"
-  ],
-  "a": 0,
-  "e": "Yeyilgan shinaning yo'lga ilashishi yomonlashadi, ayniqsa ho'l yo'lda.",
-  "id": 46
+  "id": 43,
+  "src": "86-band"
  },
  {
   "t": "Xavfsizlik",
@@ -573,7 +580,8 @@
   ],
   "a": 0,
   "e": "Xavfsiz masofa oldingi transport to'satdan tormozlaganda to'xtashga ulgurish imkonini beradi.",
-  "id": 47
+  "id": 44,
+  "src": "73-band"
  },
  {
   "t": "Xavfsizlik",
@@ -585,7 +593,8 @@
   ],
   "a": 1,
   "e": "Eshikni ochishdan oldin orqadan kelayotgan transport va velosipedchilarga xalaqit bermasligiga ishonch hosil qilinadi.",
-  "id": 48
+  "id": 45,
+  "src": "94-band"
  },
  {
   "t": "Yo'l chiziqlari",
@@ -597,18 +606,72 @@
   ],
   "a": 1,
   "e": "Yo'l belgilari va yo'l chiziqlari zid bo'lganda yo'l belgilariga amal qilinadi.",
+  "id": 46,
+  "src": "2-ilova (belgilar va chiziqlar ziddiyati)"
+ },
+ {
+  "t": "Tezlik",
+  "q": "Toshkent, Nukus, viloyat va tuman markazlarida hamda shaharlar hududida ruxsat etilgan eng yuqori tezlik qancha?",
+  "o": [
+   "50 km/soat",
+   "60 km/soat",
+   "70 km/soat"
+  ],
+  "a": 1,
+  "e": "Nukus va Toshkent shaharlarida, viloyatlar va tumanlarning markazlarida, shuningdek shaharlar hududlarida tezlik soatiga 60 kilometrdan oshmasligi kerak.",
+  "src": "78-band",
+  "id": 47
+ },
+ {
+  "t": "Tezlik",
+  "q": "Turar joy dahalari va hovli hududlarida ruxsat etilgan eng yuqori tezlik qancha?",
+  "o": [
+   "10 km/soat",
+   "20 km/soat",
+   "40 km/soat"
+  ],
+  "a": 1,
+  "e": "Turar joy dahalari va yondosh hududlarda tezlik soatiga 20 kilometrdan oshmasligi kerak.",
+  "src": "78-band",
+  "id": 48
+ },
+ {
+  "t": "Tezlik",
+  "q": "Tegishli yo'l belgilari o'rnatilgan maktab oldida, unga yetmasdan va o'tib 300 metrgacha bo'lgan masofada tezlik chegarasi qancha?",
+  "o": [
+   "20 km/soat",
+   "30 km/soat",
+   "50 km/soat"
+  ],
+  "a": 1,
+  "e": "Maktab va maktabgacha ta'lim tashkilotlariga yetmasdan va o'tib ketib 300 metrdan kam masofada tezlik soatiga 30 kilometrdan oshmasligi kerak.",
+  "src": "78-band",
   "id": 49
  },
  {
-  "t": "Xavfsizlik",
-  "q": "Uzoq safar oldidan haydovchiga nima tavsiya etiladi?",
+  "t": "Tezlik",
+  "q": "Aholi punktlaridan tashqarida yengil avtomobil uchun ruxsat etilgan eng yuqori tezlik qancha?",
   "o": [
-   "Yaxshi uxlab, dam olib chiqish",
-   "Kofe ichib, kechasi yo'lga chiqish",
-   "Hech narsa"
+   "90 km/soat",
+   "100 km/soat",
+   "120 km/soat"
   ],
-  "a": 0,
-  "e": "Yaxshi dam olgan haydovchining e'tibori va reaksiyasi yaxshiroq bo'ladi.",
+  "a": 1,
+  "e": "Aholi punktlaridan tashqarida yengil avtomobillarga tezlikni soatiga 100 kilometrdan oshirmasdan harakatlanishga ruxsat etiladi.",
+  "src": "79-band",
   "id": 50
+ },
+ {
+  "t": "YTH",
+  "q": "Aholi punktidan tashqarida avariya sababli to'xtash belgisi transport vositasidan kamida qancha masofada o'rnatiladi?",
+  "o": [
+   "15 metr",
+   "30 metr",
+   "5 metr"
+  ],
+  "a": 1,
+  "e": "Avariya sababli to'xtash belgisi aholi punktlarida transport vositasidan kamida 15 metr, aholi punktlaridan tashqarida esa kamida 30 metr masofada o'rnatiladi.",
+  "src": "51-band",
+  "id": 51
  }
 ]

@@ -1,5 +1,5 @@
-// 3D avtodrom: "ilon", estakada (qiyalikda to'xtab yurish) va garajga orqa bilan kirish.
-// Birliklar: metr va soniya. Mashina boshida z=0 da turadi va -z yo'nalishiga qarab yuradi.
+// 3D avtodrom: "B" toifa mashqlari IIV 27-son buyrug'i (2024) talablari bo'yicha.
+// Birliklar: metr va soniya. Mashina boshida -z (shimol) yo'nalishiga qarab turadi.
 import * as THREE from "three";
 import { GLTFLoader } from "./vendor/jsm/loaders/GLTFLoader.js";
 import { MeshoptDecoder } from "./vendor/jsm/libs/meshopt_decoder.module.js";
@@ -106,103 +106,409 @@ function simpleCar(spec) {
   return g;
 }
 
-// ---------- AVTODROM SXEMASI ----------
-const CONES = [{ z: -15, side: "L" }, { z: -24, side: "R" }, { z: -33, side: "L" }, { z: -42, side: "R" }];
-const RAMP = { z0: -52, z1: -60, z2: -66, z3: -74, h: 1.2, halfW: 2.0, stop0: -65, stop1: -61 };
-const GARAGE = { x0: 7, x1: 13, z0: -95.2, z1: -92.0 }; // ochiq tomoni yo'lga (x=7) qaragan
-const PEN_LIMIT = 5, TIME_LIMIT = 240;
 
-function rampHeight(x, z) {
-  if (Math.abs(x) > RAMP.halfW) return 0;
-  if (z <= RAMP.z0 && z > RAMP.z1) return RAMP.h * (RAMP.z0 - z) / (RAMP.z0 - RAMP.z1);
-  if (z <= RAMP.z1 && z > RAMP.z2) return RAMP.h;
-  if (z <= RAMP.z2 && z > RAMP.z3) return RAMP.h * (z - RAMP.z3) / (RAMP.z2 - RAMP.z3);
-  return 0;
+// ---------- AVTODROM SXEMASI ----------
+// Manba: IIV vazirining 2024-yil 18-yanvardagi 27-son buyrug'i (Adliya vazirligida 01.02.2024, 3494-son ro'yxatga olingan),
+// "O'quv avtodromiga qo'yiladigan talablar": 3-band (mashqlar ketma-ketligi), 4-ilova 2-bob ("B" toifa o'lchamlari).
+// Sxemalardagi belgilar: V — mashinaning gabarit kengligi, D — gabarit uzunligi, K — g'ildirak koleyasi.
+const PX = 10;              // yer teksturasi: 1 m = 10 piksel
+const MAX_ERR = 3;          // o'yin sharti: 3-xatoda imtihon to'xtaydi
+const TIME_LIMIT = 900;     // 15 daqiqa
+const STEER = 0.66;         // old g'ildiraklarning eng katta burilish burchagi (≈38°; burilish diametri ≈ 10,5–12 m)
+const KMH = 3.6;
+
+// lokal koordinatalar: f = {x, z, h} — nuqta va yo'nalish; u — o'ngga, v — oldinga (metr)
+const L2W = (f, u, v) => [f.x + Math.cos(f.h) * u + Math.sin(f.h) * v, f.z + Math.sin(f.h) * u - Math.cos(f.h) * v];
+const W2L = (f, x, z) => { const dx = x - f.x, dz = z - f.z; return [dx * Math.cos(f.h) + dz * Math.sin(f.h), dx * Math.sin(f.h) - dz * Math.cos(f.h)]; };
+const adv = (f, u, v, dh = 0) => { const [x, z] = L2W(f, u, v); return { x, z, h: f.h + dh }; };
+const angDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
+
+// ---------- YO'L BELGILARI (soddalashtirilgan rasm) ----------
+const signTex = {};
+function signTexture(type) {
+  if (signTex[type]) return signTex[type];
+  const cv = document.createElement("canvas"); cv.width = cv.height = 128; const g = cv.getContext("2d");
+  const circle = (fill, ring, r2 = 47) => { g.beginPath(); g.arc(64, 64, 60, 0, 7); g.fillStyle = ring; g.fill(); g.beginPath(); g.arc(64, 64, r2, 0, 7); g.fillStyle = fill; g.fill(); };
+  const tri = () => { g.beginPath(); g.moveTo(64, 8); g.lineTo(122, 112); g.lineTo(6, 112); g.closePath(); g.fillStyle = "#d32f2f"; g.fill();
+    g.beginPath(); g.moveTo(64, 32); g.lineTo(102, 100); g.lineTo(26, 100); g.closePath(); g.fillStyle = "#fff"; g.fill(); };
+  const txt = (t, size, col, y = 66) => { g.fillStyle = col; g.font = `bold ${size}px sans-serif`; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(t, 64, y); };
+  const stroke = (pts, w = 6, col = "#111") => { g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.lineWidth = w; g.strokeStyle = col; g.lineJoin = "round"; g.stroke(); };
+  const walker = (dx = 0, col = "#111") => { g.fillStyle = col; g.beginPath(); g.arc(64 + dx, 40, 7, 0, 7); g.fill();
+    stroke([[64 + dx, 48], [62 + dx, 72]], 7, col); stroke([[62 + dx, 72], [52 + dx, 92]], 6, col); stroke([[62 + dx, 72], [74 + dx, 92]], 6, col);
+    stroke([[63 + dx, 54], [50 + dx, 66]], 5, col); stroke([[63 + dx, 54], [76 + dx, 64]], 5, col); };
+  if (type.startsWith("3.24")) { circle("#fff", "#d32f2f"); txt(type.split("-")[1], 50, "#111"); }
+  else if (type.startsWith("4.7")) { circle("#1565c0", "#fff", 55); txt(type.split("-")[1], 50, "#fff", 60); stroke([[42, 88], [86, 88]], 5, "#fff"); }
+  else if (type === "5.16") { g.fillStyle = "#1565c0"; g.fillRect(4, 4, 120, 120); g.beginPath(); g.moveTo(64, 14); g.lineTo(116, 112); g.lineTo(12, 112); g.closePath(); g.fillStyle = "#fff"; g.fill();
+    g.fillStyle = "#111"; for (let i = 0; i < 4; i++) g.fillRect(40 + i * 13, 98, 7, 10); walker(0); }
+  else if (type === "5.15") { g.fillStyle = "#1565c0"; g.fillRect(4, 4, 120, 120); txt("P", 90, "#fff", 68); }
+  else if (type === "1.14" || type === "1.13") { tri(); g.beginPath(); if (type === "1.14") { g.moveTo(36, 96); g.lineTo(92, 96); g.lineTo(92, 64); } else { g.moveTo(36, 64); g.lineTo(36, 96); g.lineTo(92, 96); }
+    g.closePath(); g.fillStyle = "#111"; g.fill(); txt("16%", 22, "#111", 52); }
+  else if (type === "1.12.2") { tri(); stroke([[56, 98], [56, 80], [76, 64], [56, 46]], 7); }
+  else if (type === "1.12.1") { tri(); stroke([[72, 98], [72, 80], [52, 64], [72, 46]], 7); }
+  else if (type === "1.2") { tri(); g.fillStyle = "#111"; g.fillRect(36, 70, 52, 22); g.fillRect(70, 56, 18, 14); g.fillRect(40, 58, 8, 12);
+    g.beginPath(); g.arc(46, 95, 6, 0, 7); g.arc(78, 95, 6, 0, 7); g.fill(); }
+  else if (type === "1.3.1") { g.translate(64, 64); for (const a of [0.6, -0.6]) { g.save(); g.rotate(a); g.fillStyle = "#d32f2f"; g.fillRect(-60, -11, 120, 22);
+    g.fillStyle = "#fff"; for (let i = -54; i < 54; i += 36) g.fillRect(i, -8, 18, 16); g.restore(); } }
+  else if (type === "2.5") { g.beginPath(); for (let i = 0; i < 8; i++) { const a = Math.PI / 8 + i * Math.PI / 4; g.lineTo(64 + 60 * Math.cos(a), 64 + 60 * Math.sin(a)); }
+    g.closePath(); g.fillStyle = "#fff"; g.fill(); g.beginPath(); for (let i = 0; i < 8; i++) { const a = Math.PI / 8 + i * Math.PI / 4; g.lineTo(64 + 54 * Math.cos(a), 64 + 54 * Math.sin(a)); }
+    g.closePath(); g.fillStyle = "#d32f2f"; g.fill(); txt("STOP", 34, "#fff"); }
+  return (signTex[type] = new THREE.CanvasTexture(cv));
 }
-function onCourse(x, z) {
-  if (z <= 6 && z >= -104 && Math.abs(x) <= 5) return true;          // asosiy yo'lak
-  if (z <= -84 && z >= -104 && x >= -5 && x <= 14) return true;      // garaj oldi maydoni
-  return false;
+
+// ---------- AVTODROMNI QURISH (mashina o'lchamiga qarab — 16-band) ----------
+function makeCourse(spec) {
+  const V = spec.wid, D = spec.len, K = V - 0.25;
+  const W = Math.max(3.0, Math.floor(V * 2.5 * 10) / 10);    // mashq yo'laklari: 2÷2,5·V (rasmiy oraliqning yuqori chegarasi)
+  const RW = Math.max(3.5, W);                              // oddiy yo'l: kamida 3,0 m (2-bob 6-band)
+  const shapes = [], paints = [], mods = [], lights = [], ramps = [], path = [];
+  const root = new THREE.Group();
+  const grp = f => { const g = new THREE.Group(); g.position.set(f.x, 0, f.z); g.rotation.y = -f.h; root.add(g); return g; };
+  const rect = (f, u0, u1, v0, v1, z = 0) => shapes.push({ t: "r", f, u0, u1, v0, v1, z });
+  const ann = (f, cu, cv, r0, r1, a0, a1, z = 0) => shapes.push({ t: "a", f, cu, cv, r0, r1, a0, a1, z });
+  const fil = (f, cu, cv, du, dv, r, z = 0) => shapes.push({ t: "f", f, cu, cv, du, dv, r, z });
+  const paint = (f, fn) => paints.push({ f, fn });
+  const pts = (f, list, o = {}) => list.forEach(([u, v]) => { const [x, z] = L2W(f, u, v); path.push({ x, z, ...o }); });
+  const M = o => { o.st = {}; mods.push(o); return o; };
+  const mat = c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.8 });
+  const box = (g, w, h, d, x, y, z, m) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); g.add(b); return b; };
+  const poleMat = mat(0x9aa3a8), backMat = mat(0xb0b5b8);
+  // belgi: lokal (u, v) nuqtada, kelayotgan haydovchiga qaragan; back=true — teskari yo'nalishga
+  const sign = (f, u, v, types, back = false) => {
+    const g = grp(f), s = new THREE.Group(); s.position.set(u, 0, -v); if (back) s.rotation.y = Math.PI; g.add(s);
+    box(s, 0.07, 2.2 + 0.7 * (types.length - 1), 0.07, 0, 1.1 + 0.35 * (types.length - 1), 0, poleMat);
+    types.forEach((t, i) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.7), new THREE.MeshBasicMaterial({ map: signTexture(t), transparent: true }));
+      m.position.set(0, 2.3 + 0.72 * (types.length - 1 - i), 0.05); s.add(m);
+      const bk = new THREE.Mesh(new THREE.PlaneGeometry(0.66, 0.66), backMat); bk.rotation.y = Math.PI; bk.position.set(0, m.position.y, 0.03); s.add(bk); });
+    return s;
+  };
+  // chizish yordamchilari (lokal metrlarda)
+  const D_ = {
+    bar(c, u0, v0, u1, v1, col) { c.fillStyle = col; c.fillRect(Math.min(u0, u1), Math.min(v0, v1), Math.abs(u1 - u0), Math.abs(v1 - v0)); },
+    dashU(c, u0, u1, v, w, col, s = 0.5) { c.fillStyle = col; for (let u = u0; u < u1; u += 2 * s) c.fillRect(u, v - w / 2, Math.min(s, u1 - u), w); },
+    dashV(c, u, v0, v1, w, col, s = 0.5) { c.fillStyle = col; for (let v = v0; v < v1; v += 2 * s) c.fillRect(u - w / 2, v, w, Math.min(s, v1 - v)); },
+    zebra(c, u0, u1, v0, v1) { c.fillStyle = "#f4f4f4"; for (let u = u0 + 0.25; u < u1 - 0.3; u += 1.0) c.fillRect(u, v0, 0.5, v1 - v0); },  // 1.14.1
+    zebraU(c, u0, u1, v0, v1) { c.fillStyle = "#f4f4f4"; for (let v = v0 + 0.25; v < v1 - 0.3; v += 1.0) c.fillRect(u0, v, u1 - u0, 0.5); },
+    text(c, s, u, v, h, col = "#fff", rot = 0) { c.save(); c.translate(u, v); c.scale(1 / 40, -1 / 40); c.rotate(rot); c.fillStyle = col;
+      c.font = `bold ${h * 40}px sans-serif`; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText(s, 0, 0); c.restore(); },
+  };
+  const YEL = "#f2c200", WHT = "#ffffff";
+  let P = { x: 0, z: 0, h: 0 };
+  const road = (len, zone = 0) => { const f = P; rect(f, -RW / 2, RW / 2, 0, len, zone); pts(f, [[0, len]]); P = adv(f, 0, len); return f; };
+  const exitAt = (o, fe) => { o.fe = fe; return o; };
+
+  // 1. Harakatni boshlash (START) — 2-bob 7–10-bandlar
+  { const f = P; rect(f, -RW / 2, RW / 2, -D - 3, 12);
+    paint(f, c => { D_.bar(c, -RW / 2, 0, RW / 2, 0.4, WHT); D_.dashU(c, -RW / 2, RW / 2, 10, 0.15, YEL); D_.text(c, "START", -RW / 2 - 1.9, 0.6, 0.8, WHT, -Math.PI / 2); });
+    sign(f, RW / 2 + 0.8, 10, ["3.24-20"]);
+    pts(f, [[0, 0], [0, 12]]); P = adv(f, 0, 12);
+    exitAt(M({ id: "start", name: "Harakatni boshlash (START)" }), P); }
+
+  // 2. Piyodalar o'tish joyi — 14-band (5.16 belgilari, 1.14.1 chizig'i)
+  { const f = P; rect(f, -RW / 2, RW / 2, 0, 10);
+    paint(f, c => D_.zebra(c, -RW / 2, RW / 2, 4, 7));
+    sign(f, RW / 2 + 0.8, 4, ["5.16"]); sign(f, -RW / 2 - 0.8, 4, ["5.16"]);
+    const g = grp(f), ped = new THREE.Group();
+    const cloth = mat(0x1e88e5), skin = mat(0xd7a679), dark = mat(0x333333);
+    box(ped, 0.42, 0.62, 0.26, 0, 1.18, 0, cloth); const head = new THREE.Mesh(new THREE.SphereGeometry(0.13, 12, 10), skin); head.position.y = 1.62; ped.add(head);
+    const legs = [-0.1, 0.1].map(x => { const l = box(ped, 0.14, 0.86, 0.16, x, 0.43, 0, dark); l.geometry.translate(0, -0.43, 0); l.position.y = 0.86; return l; });
+    ped.position.set(-RW / 2 - 2, 0, -5.5); ped.rotation.y = -Math.PI / 2; g.add(ped);
+    pts(f, [[0, 10]]); P = adv(f, 0, 10);
+    exitAt(M({ id: "zebra", name: "Piyodalar o'tish joyi", ped, f, tick(d, dt) {
+      const st = this.st, fr = W2L(f, ...d.front()), rr = W2L(f, ...d.rear());
+      if (!st.go && fr[1] > -7) st.go = true;
+      if (st.go && ped.position.x < RW / 2 + 2) { ped.position.x += 1.3 * dt; st.ph = (st.ph || 0) + dt * 7; legs[0].rotation.x = Math.sin(st.ph) * 0.5; legs[1].rotation.x = -Math.sin(st.ph) * 0.5; }
+      const onRoad = ped.position.x > -RW / 2 - 0.3 && ped.position.x < RW / 2 + 0.3;
+      if (onRoad && fr[1] > 4 && rr[1] < 7 && !st.err) { st.err = true; d.err("Piyodalar o'tish joyida piyodaga yo'l bermadingiz"); }
+    } }), P); }
+
+  // 3. To'xtash va tik balandlikka ko'tarilish (estakada) — 11–13-bandlar
+  { const f = P, s = 0.16, a = 6 / Math.hypot(1, s), H = a * s, v0 = 4, v1 = v0 + a, v2 = v1 + 4, v3 = v2 + a, cs = 1 / Math.hypot(1, s);
+    const L0 = v1 - 1.4 * cs, L1 = v1 - 1.0 * cs;          // 1.12 to'xtash chizig'i: eni 0,4 m, ko'tarilish oxirigacha 1,0 m
+    rect(f, -RW / 2, RW / 2, 0, 24);
+    const hAt = v => v <= v0 ? 0 : v <= v1 ? (v - v0) * s : v <= v2 ? H : v <= v3 ? (v3 - v) * s : 0;
+    ramps.push({ f, hw: RW / 2 + 0.1, v0, v3, hAt });
+    const g = grp(f), conc = mat(0xb9b3a8), bar = mat(0xd84315), wbar = mat(0xf5f5f5);
+    const slab = (va, vb, ha, hb) => { const len = Math.hypot(vb - va, hb - ha), m = box(g, RW, 0.14, len, 0, (ha + hb) / 2 - 0.07, -(va + vb) / 2, conc); m.rotation.x = Math.atan2(hb - ha, vb - va); return m; };
+    slab(v0, v1, 0, H); slab(v1, v2, H, H); slab(v2, v3, H, 0);
+    // himoya to'siqlari: balandligi 0,5 m, qalinligi 0,3 m (12-band), chiziqdan 0,1 m nari (6-band)
+    for (const sx of [-1, 1]) for (const [va, vb, ha, hb] of [[v0 - 1, v0, 0, 0], [v0, v1, 0, H], [v1, v2, H, H], [v2, v3, H, 0], [v3, v3 + 1, 0, 0]]) {
+      const len = Math.hypot(vb - va, hb - ha), n = Math.max(1, Math.round(len / 1));
+      for (let i = 0; i < n; i++) { const t0 = i / n, t1 = (i + 1) / n, vm = va + (vb - va) * (t0 + t1) / 2, hm = ha + (hb - ha) * (t0 + t1) / 2;
+        const m = box(g, 0.3, 0.5, len / n, sx * (RW / 2 + 0.25), hm + 0.25, -vm, i % 2 ? wbar : bar); m.rotation.x = Math.atan2(hb - ha, vb - va); } }
+    const line = box(g, RW, 0.02, 0.4, 0, 0, 0, new THREE.MeshBasicMaterial({ color: 0xffffff }));
+    line.position.set(0, ((L0 + L1) / 2 - v0) * s + 0.005, -(L0 + L1) / 2); line.rotation.x = Math.atan2(s, 1);
+    sign(f, RW / 2 + 1.0, v0 - 3, ["1.14"]); sign(f, RW / 2 + 1.0, v2 - 3, ["1.13"]);
+    pts(f, [[0, L0 - 0.3]], { stopFront: L0 - 0.25, hold: 1.5 }); pts(f, [[0, 24]]); P = adv(f, 0, 24);
+    exitAt(M({ id: "ramp", name: "Estakada (tik balandlikda to'xtab, joyidan qo'zg'alish)", line: L0, f, tick(d, dt) {
+      const st = this.st, fv = W2L(f, ...d.front())[1], cvv = W2L(f, d.car.x, d.car.z)[1];
+      if (st.stop == null) {
+        if (Math.abs(d.car.v) < 0.05 && fv <= L0 && fv >= L0 - 2.0 && cvv > v0) { st.t = (st.t || 0) + dt; if (st.t > 0.5) { st.stop = cvv; d.say("✅ To'xtadingiz. Endi orqaga ketmasdan joyidan qo'zg'aling"); } }
+        else st.t = 0;
+        if (fv > L0 + 0.05 && !st.miss) { st.miss = true; d.err("Estakadada to'xtash chizig'i oldida to'xtamadingiz"); }
+      } else if (!st.roll && st.stop - cvv > 0.3) { st.roll = true; d.err("Estakadada orqaga ketib qoldingiz (0,3 m dan ko'p)"); }
+    } }), P); }
+
+  road(6);
+  // 4. 90 gradus burchak ostida burilishlar ("B" toifa sxemasi: 11,5 m, R 1 m, yo'lak 2÷2,5·V) — 15-band
+  { const f = P, T = 11.5;
+    rect(f, -W / 2, W / 2, 0, D + W, 1); rect(f, W / 2 - T, W / 2, D, D + W, 1); rect(f, W / 2 - T, W / 2 - T + W, D, 2 * D + W, 1);
+    fil(f, -W / 2, D, -1, -1, 1, 1); fil(f, 1.5 * W - T, D + W, 1, 1, 1, 1);
+    paint(f, c => { D_.dashU(c, -W / 2, W / 2, 0.1, 0.15, YEL, 0.25); D_.dashU(c, W / 2 - T, W / 2 - T + W, 2 * D + W - 0.1, 0.15, YEL, 0.25); });
+    sign(f, RW / 2 + 0.8, -3, ["1.12.2"]);
+    const cu = W - T;  // chiqish o'qi
+    pts(f, [[0, 0.5], [0.15 * W, D + 0.1 * W], [cu * 0.5, D + W * 0.5], [cu - 0.15 * W, D + 0.9 * W], [cu, 2 * D + W]], { spd: 2.2 });
+    P = adv(f, cu, 2 * D + W);
+    exitAt(M({ id: "turn90", name: "90 gradus burchak ostida burilishlar", f, T }), P); }
+
+  road(6);
+  // 5–6. Boks va chorraha. Chorraha: burilish radiusi > 4,0 m, 1.12 chizig'i 0,4 m, piyodalar o'tish joyi — 19-band
+  const La = 12, Lw = 22, Lb = 12, Rx = 4.5;
+  const X = P;
+  { const f = X, sq0 = La, sq1 = La + RW;
+    rect(f, -RW / 2, RW / 2, 0, sq1 + Lb); rect(f, -RW / 2 - Lw, RW / 2 + 6, sq0, sq1);
+    fil(f, RW / 2, sq0, 1, -1, Rx); fil(f, -RW / 2, sq0, -1, -1, Rx); fil(f, RW / 2, sq1, 1, 1, Rx); fil(f, -RW / 2, sq1, -1, 1, Rx);
+    const zS = [sq0 - Rx - 1 - 3, sq0 - Rx - 1], zN = [sq1 + Rx + 1, sq1 + Rx + 4];
+    const stopS = zS[0] - 1.0 - 0.4, stopN = zN[1] + 1.0 + 0.4;   // to'xtash chizig'i — piyodalar yo'lagidan kamida 1,0 m oldin
+    paint(f, c => { D_.zebra(c, -RW / 2, RW / 2, zS[0], zS[1]); D_.zebra(c, -RW / 2, RW / 2, zN[0], zN[1]);
+      D_.zebraU(c, -RW / 2 - Rx - 4, -RW / 2 - Rx - 1, sq0, sq1);
+      D_.bar(c, -RW / 2, stopS, RW / 2, stopS + 0.4, WHT); D_.bar(c, -RW / 2, stopN - 0.4, RW / 2, stopN, WHT); });
+    // svetoforlar: shimolga va janubga harakat uchun bitta faza
+    const mkLight = (u, v, back) => { const g = grp(f), s = new THREE.Group(); s.position.set(u, 0, -v); if (back) s.rotation.y = Math.PI; g.add(s);
+      box(s, 0.1, 2.4, 0.1, 0, 1.2, 0, poleMat); box(s, 0.36, 0.95, 0.24, 0, 2.75, 0, mat(0x222222));
+      const lamps = [0xff2a2a, 0xffc400, 0x22dd55].map((col, i) => { const m = new THREE.MeshStandardMaterial({ color: 0x333333, emissive: col, emissiveIntensity: 0.05 });
+        const l = new THREE.Mesh(new THREE.SphereGeometry(0.11, 14, 10), m); l.position.set(0, 3.05 - i * 0.3, 0.13); s.add(l); return m; });
+      return lamps; };
+    const lampsS = mkLight(RW / 2 + 0.7, stopS, false), lampsN = mkLight(-RW / 2 - 0.7, stopN, true);
+    const off = Math.random() * 20;
+    const L = { f, stopS, stopN, phase(t) { const k = (t + off) % 20; return k < 9 ? "green" : k < 12 ? "yellow" : "red"; },
+      show(t) { const p = this.phase(t); [lampsS, lampsN].forEach(ls => ls.forEach((m, i) => m.emissiveIntensity = (["red", "yellow", "green"][i] === p) ? 2.2 : 0.05)); } };
+    lights.push(L);
+    // sharq tomoni berk: 3.1 "Kirish taqiqlangan"
+    const gs = grp(f); for (let i = 0; i < 4; i++) box(gs, 0.25, 0.8, RW / 4 - 0.05, RW / 2 + 5.7, 0.4, -(sq0 + RW / 8 + i * RW / 4), i % 2 ? mat(0xffffff) : mat(0xd32f2f));
+    pts(f, [[0, sq1 + Lb]], {});
+    M({ id: "cross1", hide: true, name: "Chorraha", msg: "Chorrahadan to'g'riga o'tib, boksga boring (svetoforga e'tibor bering)", fe: adv(f, 0, sq1 + Lb), tick(d) {
+      if (W2L(f, d.car.x, d.car.z)[0] < -RW / 2 - 2) d.end(false, "Marshrutdan chetga chiqdingiz: avval boks mashqini bajaring");
+    } });
+    P = adv(f, 0, sq1 + Lb);
+  }
+
+  // 5. Tor joyda qayrilib olish uchun boksga kirish ("B" toifa: R 1 m; boks chuqurligi D+1, kengligi 2÷2,5·V) — 17-band
+  { const f = P, Hb = D + 1, Lmax = (D + 1) + W + D, ctrl = -W / 2 - Hb + 1.0 + 0.5;
+    rect(f, -W / 2, W / 2, 0, Lmax, 2); rect(f, -W / 2 - Hb, -W / 2, D, D + W, 2);
+    fil(f, -W / 2, D, -1, -1, 1, 2); fil(f, -W / 2, D + W, -1, 1, 1, 2);
+    paint(f, c => { D_.dashU(c, -W / 2, W / 2, 0.1, 0.15, YEL, 0.25);
+      D_.bar(c, ctrl - 0.5, D, ctrl - 0.5 + 0.1, D + W, WHT); D_.bar(c, ctrl - 0.1, D, ctrl, D + W, WHT); });
+    const fe = { x: f.x, z: f.z, h: f.h + Math.PI };
+    pts(f, [[0, Lmax - 1]]);
+    M({ id: "box", name: "Tor joyda qayrilib olish (boksga orqa bilan kirish)", fe, f, Hb, Lmax, ctrl, boxV: [D, D + W], tick(d) {
+      const st = this.st, rc = d.rearCorners().map(([x, z]) => W2L(f, x, z));
+      if (!st.ok && rc.every(([u, v]) => u <= ctrl && v > D && v < D + W)) { st.ok = true; d.say("✅ Boksga kirdingiz. Endi chiqib, chorrahaga qayting"); }
+      if (W2L(fe, d.car.x, d.car.z)[1] > 0.5) { if (!st.ok) return d.end(false, "Boksga kirish mashqi bajarilmadi"); this.done = true; }
+    }, custom: true });
+  }
+
+  // 6. Chorrahaga qaytish va o'ngga burilish
+  { const f = X, sq0 = La, sq1 = La + RW, fe = adv(f, -RW / 2 - Lw, sq0 + RW / 2, -Math.PI / 2);
+    const rt = Rx + RW / 2, arc = [[0, sq1 + Rx + 2]];   // o'ngga burilish: bordyur radiusi 4,5 m bilan konsentrik
+    for (let i = 0; i <= 10; i++) { const t = i / 10 * Math.PI / 2; arc.push([-rt + rt * Math.cos(t), sq1 + Rx - rt * Math.sin(t)]); }
+    arc.push([-RW / 2 - Lw, sq0 + RW / 2]); pts(f, arc);
+    M({ id: "cross2", name: "Harakat tartibga solingan chorraha (o'ngga burilish)", fe, tick(d) {
+      if (W2L(f, d.car.x, d.car.z)[1] < sq0 - 2) d.end(false, "Chorrahada o'ngga burilish kerak edi (marshrut)");
+    } });
+    P = fe;
+  }
+  // chapga burilish (janubga)
+  { const f = P, R = 8; ann(f, -R, 0, R - RW / 2, R + RW / 2, 0, Math.PI / 2);
+    const arc = []; for (let i = 1; i <= 8; i++) { const a = i / 8 * Math.PI / 2; arc.push([-R + R * Math.cos(a), R * Math.sin(a)]); } pts(f, arc);
+    P = adv(f, -R, R, -Math.PI / 2); M({ id: "bend", hide: true, name: "Yo'l", fe: P }); }
+  road(8);
+
+  // 7. Ilon izi ("B" toifa: tashqi radius 7,65 m, 135° yoylar, yo'lak 2÷2,5·V) — 16-band
+  { const f = P, Rc = 7.65 - W / 2, k = Math.SQRT1_2, c2u = -Rc - 2 * Rc * k, c2v = 2 * Rc * k;
+    ann(f, -Rc, 0, Rc - W / 2, Rc + W / 2, 0, 3 * Math.PI / 4, 3); ann(f, c2u, c2v, Rc - W / 2, Rc + W / 2, -Math.PI, -Math.PI / 4, 3);
+    rect(f, -W / 2, W / 2, -0.5, 0.3, 3); rect(f, c2u - Rc - W / 2, c2u - Rc + W / 2, c2v - 0.3, c2v + 0.5, 3);
+    paint(f, c => { D_.dashU(c, -W / 2, W / 2, 0.1, 0.15, YEL, 0.25); D_.dashU(c, c2u - Rc - W / 2, c2u - Rc + W / 2, c2v - 0.1, 0.15, YEL, 0.25); });
+    sign(f, RW / 2 + 0.8, -3, ["1.12.2"]);
+    // tavsiya etilgan chiziq (orqa o'q): ichki bordyur va old burchakning tashqi chizig'i orasida
+    const rIn = Rc - W / 2 + V / 2, rOut = Math.sqrt(7.65 ** 2 - ((D + spec.wb) / 2) ** 2) - V / 2, r = Math.min(Rc, (rIn + rOut) / 2);
+    const rr = t => r + (Rc - r) * Math.max(0, 1 - t / 0.25, (t - 0.75) / 0.25);   // uchlarida o'q chizig'iga qaytadi
+    const arc = []; for (let i = 1; i <= 16; i++) { const t = i / 16, a = t * 3 * Math.PI / 4; arc.push([-Rc + rr(t) * Math.cos(a), rr(t) * Math.sin(a)]); }
+    for (let i = 1; i <= 16; i++) { const t = i / 16, a = -Math.PI / 4 - t * 3 * Math.PI / 4; arc.push([c2u + rr(t) * Math.cos(a), c2v + rr(t) * Math.sin(a)]); }
+    pts(f, arc, { spd: 3 });
+    P = adv(f, c2u - Rc, c2v);
+    exitAt(M({ id: "snake", name: "Ilon izi" }), P); }
+  road(6);
+
+  // 8. Orqaga harakatlanib parallel to'xtash ("B": cho'ntak uzunligi 1,8÷2,2·D, chuqurligi ≥ V+1) — 18-band
+  { const f = P, Lp = 2.0 * D, Dp = V + 1, a = 3, Lt = a + Lp + D + 4, edge = RW / 2 + Dp, ctrlD = 0.4 * K;
+    rect(f, -RW / 2, RW / 2, 0, Lt, 4); rect(f, RW / 2, edge, a, a + Lp, 4);
+    paint(f, c => { D_.dashV(c, RW / 2, a, a + Lp, 0.15, YEL, 0.25); D_.bar(c, edge - ctrlD - 0.1, a, edge - ctrlD, a + Lp, WHT); });
+    sign(f, edge + 0.7, a, ["5.15"]);
+    pts(f, [[0, Lt]]);
+    P = adv(f, 0, Lt);
+    M({ id: "park", name: "Orqaga harakatlanib parallel to'xtash (parkovka)", fe: P, f, a, Lp, edge, ctrlD, tick(d) {
+      const st = this.st, cs = d.corners().map(([x, z]) => W2L(f, x, z)), dh = angDiff(d.car.h, f.h);
+      const inside = cs.every(([u, v]) => u > RW / 2 && u < edge && v > a && v < a + Lp);
+      if (!st.ok && inside && Math.abs(d.car.v) < 0.05 && Math.abs(dh) < 0.12) {
+        const gap = edge - Math.max(...cs.map(c => c[0]));
+        if (gap <= ctrlD) { st.ok = true; d.say("✅ Parkovka bajarildi. Endi yo'lga chiqib, davom eting"); }
+        else if (!st.hint) { st.hint = true; d.say("Mashinani bordyurga yaqinroq (nazorat chizig'idan o'tib) qo'ying"); }
+      }
+      if (!st.ok && !st.miss && W2L(f, d.car.x, d.car.z)[1] > Lt - 1) { st.miss = true; d.err("Parkovka mashqi bajarilmadi"); }
+    } });
+  }
+  road(4);
+
+  // 9. Tartibga solinmagan temir yo'l kesishmasi — 20-band (1.12 chizig'i kesishmadan ≥ 2,0 m oldin; 1.2, 1.3.1, 2.5 belgilari)
+  { const f = P, sl = 6, r1 = sl + 0.4 + 2.5, gauge = 1.52;
+    rect(f, -RW / 2, RW / 2, 0, 16);
+    paint(f, c => { D_.bar(c, -RW / 2, sl, RW / 2, sl + 0.4, WHT); D_.bar(c, -RW / 2 - 1, r1 - 0.8, RW / 2 + 1, r1 + gauge + 0.8, "#6d6a63"); });
+    const g = grp(f), steel = mat(0x8d8d8d), wood = mat(0x5d4037);
+    for (const rv of [r1, r1 + gauge]) box(g, RW + 8, 0.12, 0.08, 0, 0.06, -rv, steel);
+    for (let u = -RW / 2 - 4; u <= RW / 2 + 4; u += 0.6) box(g, 0.25, 0.05, gauge + 1.0, u, 0.025, -(r1 + gauge / 2), wood);
+    sign(f, RW / 2 + 0.8, 0.5, ["1.2"]); sign(f, RW / 2 + 0.8, sl + 0.4, ["1.3.1", "2.5"]);
+    pts(f, [[0, sl - 0.3]], { stopFront: sl - 0.3, hold: 1.2 }); pts(f, [[0, 16]]); P = adv(f, 0, 16);
+    exitAt(M({ id: "rail", name: "Temir yo'l kesishmasi (tartibga solinmagan)", f, sl, tick(d) {
+      const st = this.st, fv = W2L(f, ...d.front())[1];
+      if (!st.ok && Math.abs(d.car.v) < 0.05 && fv <= sl && fv >= sl - 3) { st.ok = true; d.say("✅ To'xtadingiz. Poyezd yo'qligiga ishonch hosil qilib, o'ting"); }
+      if (!st.ok && !st.miss && fv > sl + 0.05) { st.miss = true; d.err("2.5 \"STOP\" belgisi: to'xtash chizig'i oldida to'xtamadingiz"); }
+    } }), P); }
+  road(4);
+
+  // 10. Tezlashish bo'lagi — 21-band (buyruqda "4.6", amaldagi YHQ 1-ilovasida "Eng kam tezlik" — 4.7: "20", 3.24 "40", oxirida 3.24 "20"; kamida 40 m)
+  { const f = P, z0 = 2, z1 = 42;
+    rect(f, -RW / 2, RW / 2, 0, 50);
+    sign(f, RW / 2 + 0.8, z0, ["4.7-20", "3.24-40"]); sign(f, RW / 2 + 0.8, z1, ["3.24-20"]);
+    pts(f, [[0, z0 + 1]], {}); pts(f, [[0, z1 - 14]], { spd: 8.5 }); pts(f, [[0, 50]], { spd: 5 });
+    P = adv(f, 0, 50);
+    exitAt(M({ id: "accel", name: "Tezlashish bo'lagi", fast(d) { const fv = W2L(f, ...d.front())[1]; return fv > z0 && fv < z1; }, tick(d) {
+      const st = this.st, fv = W2L(f, ...d.front())[1], kmh = Math.abs(d.car.v) * KMH;
+      if (fv > z0 && fv < z1) { st.max = Math.max(st.max || 0, kmh); if (kmh > 40.5 && !st.over) { st.over = true; d.err("3.24: tezlik 40 km/soatdan oshdi"); } }
+      if (fv >= z1 && !st.end) { st.end = true;
+        if ((st.max || 0) < 20) d.err("4.7: eng kam tezlikka (20 km/soat) erishmadingiz");
+        else if (kmh > 20.5) d.err("3.24: belgigacha 20 km/soatgacha sekinlashmadingiz"); else d.say("✅ Tezlashish bo'lagi bajarildi"); }
+    } }), P); }
+  road(6);
+
+  // 11. Avariya holatda to'xtash — 22-band (sxemada o'lcham berilmagan; signal va 1 soniya reaksiya — o'yin sharti)
+  { const f = P, g = grp(f);
+    rect(f, -RW / 2, RW / 2, 0, 34);
+    box(g, 0.1, 2.6, 0.1, RW / 2 + 1, 1.3, -16, poleMat);
+    const lampM = new THREE.MeshStandardMaterial({ color: 0x441111, emissive: 0xff1a1a, emissiveIntensity: 0.05 });
+    const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.28, 16, 12), lampM); lamp.position.set(RW / 2 + 1, 2.9, -16); g.add(lamp);
+    pts(f, [[0, 34]], { spd: 5, emerg: true }); P = adv(f, 0, 34);
+    exitAt(M({ id: "emerg", name: "Avariya holatda to'xtash", tick(d, dt) {
+      const st = this.st, fv = W2L(f, ...d.front())[1], kmh = Math.abs(d.car.v) * KMH;
+      if (!st.trig && fv > 6 && (kmh >= 15 || fv > 24)) { st.trig = true; st.t0 = d.t; lampM.emissiveIntensity = 3; d.say("🛑 XAVF! Zudlik bilan to'xtang!");
+        window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred("error");
+        if (kmh < 15) { st.slow = true; d.err("Avariya mashqi uchun tezlik kamida 15 km/soat bo'lishi kerak"); } }
+      if (st.trig && !st.react && d.keys.brake) st.react = true;
+      if (st.trig && !st.react && !st.late && d.t - st.t0 > 1.0) { st.late = true; d.err("Avariya signalida kech tormoz berdingiz (1 soniyadan ko'p)"); }
+      if (st.trig && !st.ok && Math.abs(d.car.v) < 0.05) { st.ok = true; lampM.emissiveIntensity = 0.05; d.say("✅ To'xtadingiz. Finishga boring"); }
+      d.signal = st.trig && !st.ok;
+    } }), P); }
+  road(4);
+
+  // 12. Harakatni yakunlash (FINISH) — 23-band (finish maydoni kamida 10 m, keyin to'xtab turish joyi)
+  { const f = P, fl = 2, fz = fl + 0.4 + 10;
+    rect(f, -RW / 2, RW / 2, 0, fz + 5); rect(f, RW / 2, RW / 2 + 3, fz + 0.5, fz + 5);
+    paint(f, c => { D_.bar(c, -RW / 2, fl, RW / 2, fl + 0.4, WHT); D_.dashU(c, -RW / 2, RW / 2, fz, 0.15, YEL); D_.text(c, "FINISH", -RW / 2 - 1.9, fl + 1.2, 0.8, WHT, -Math.PI / 2);
+      D_.text(c, "P", RW / 2 + 1.5, fz + 2.7, 1.6, WHT); });
+    pts(f, [[0, fl + 0.4 + D / 2 + 3]], { stopCenter: fl + 0.4 + D / 2 + 3 });
+    M({ id: "finish", name: "Harakatni yakunlash (FINISH)", f, fl, custom: true, tick(d) {
+      const st = this.st, rv = Math.min(...d.rearCorners().map(([x, z]) => W2L(f, x, z)[1])), fv = W2L(f, ...d.front())[1];
+      if (rv > fl + 0.4 && Math.abs(d.car.v) < 0.05) return d.end(true);
+      if (fv > fz && !st.over) { st.over = true; d.err("Finish maydonida (10 m) to'xtamadingiz"); }
+    } });
+  }
+
+  // ---------- yer teksturasi va harakatlanish mumkin bo'lgan maydon (maska) ----------
+  let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9;
+  const ext = (f, u, v) => { const [x, z] = L2W(f, u, v); x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z); };
+  for (const s of shapes) {
+    if (s.t === "r") { ext(s.f, s.u0, s.v0); ext(s.f, s.u1, s.v0); ext(s.f, s.u0, s.v1); ext(s.f, s.u1, s.v1); }
+    else if (s.t === "a") for (const a of [-1, 1]) for (const b of [-1, 1]) ext(s.f, s.cu + a * s.r1, s.cv + b * s.r1);
+    else { ext(s.f, s.cu, s.cv); ext(s.f, s.cu + s.du * s.r, s.cv + s.dv * s.r); }
+  }
+  const X0 = Math.floor(x0 - 14), Z0 = Math.floor(z0 - 14), cw = Math.ceil((x1 + 14 - X0) * PX), ch = Math.ceil((z1 + 14 - Z0) * PX);
+  const setT = (c, f) => { const co = Math.cos(f.h), si = Math.sin(f.h); c.setTransform(PX * co, PX * si, PX * si, -PX * co, PX * (f.x - X0), PX * (f.z - Z0)); };
+  const mk = document.createElement("canvas"); mk.width = cw; mk.height = ch; const mc = mk.getContext("2d");
+  mc.fillStyle = "#000"; mc.fillRect(0, 0, cw, ch);
+  for (const s of shapes) {
+    setT(mc, s.f); mc.fillStyle = `rgb(255,${s.z * 40},0)`;
+    if (s.t === "r") mc.fillRect(s.u0, s.v0, s.u1 - s.u0, s.v1 - s.v0);
+    else if (s.t === "a") { mc.beginPath(); mc.arc(s.cu, s.cv, s.r1, s.a0, s.a1, false); mc.arc(s.cu, s.cv, s.r0, s.a1, s.a0, true); mc.closePath(); mc.fill(); }
+    else { const ux = Math.min(s.cu, s.cu + s.du * s.r), vy = Math.min(s.cv, s.cv + s.dv * s.r);
+      mc.save(); mc.beginPath(); mc.rect(ux, vy, s.r, s.r); mc.clip(); mc.beginPath(); mc.rect(ux, vy, s.r, s.r); mc.arc(s.cu + s.du * s.r, s.cv + s.dv * s.r, s.r, 0, 7); mc.fill("evenodd"); mc.restore(); }
+  }
+  mc.setTransform(1, 0, 0, 1, 0, 0);
+  const md = mc.getImageData(0, 0, cw, ch).data, N = cw * ch, road01 = new Uint8Array(N), zone = new Uint8Array(N);
+  for (let i = 0; i < N; i++) { road01[i] = md[i * 4] > 128 ? 1 : 0; zone[i] = md[i * 4 + 1] > 20 ? 1 : 0; }
+  // chegaragacha masofa (piksel, chamfer)
+  const dist = (inside) => { const d = new Float32Array(N).fill(99);
+    for (let i = 0; i < N; i++) if (road01[i] !== inside) d[i] = 0;
+    for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) { const i = y * cw + x; if (!d[i]) continue;
+      let m = d[i]; if (x) m = Math.min(m, d[i - 1] + 1); if (y) { m = Math.min(m, d[i - cw] + 1); if (x) m = Math.min(m, d[i - cw - 1] + 1.41); if (x < cw - 1) m = Math.min(m, d[i - cw + 1] + 1.41); } d[i] = m; }
+    for (let y = ch - 1; y >= 0; y--) for (let x = cw - 1; x >= 0; x--) { const i = y * cw + x; if (!d[i]) continue;
+      let m = d[i]; if (x < cw - 1) m = Math.min(m, d[i + 1] + 1); if (y < ch - 1) { m = Math.min(m, d[i + cw] + 1); if (x < cw - 1) m = Math.min(m, d[i + cw + 1] + 1.41); if (x) m = Math.min(m, d[i + cw - 1] + 1.41); } d[i] = m; }
+    return d; };
+  const dIn = dist(1), dOut = dist(0);
+  const tex = document.createElement("canvas"); tex.width = cw; tex.height = ch; const tc = tex.getContext("2d");
+  const img = tc.createImageData(cw, ch), px = img.data;
+  let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  for (let i = 0; i < N; i++) {
+    let r, g, b; const n = (rnd() - 0.5) * 10;
+    if (road01[i]) {
+      if (dIn[i] <= 1.5) [r, g, b] = zone[i] ? [242, 194, 0] : [245, 245, 245];      // 1.4 (sariq) yoki 1.1 (oq) chiziq
+      else [r, g, b] = [86 + n, 90 + n, 96 + n];
+    } else if (dOut[i] <= 1.5) [r, g, b] = [96 + n, 100 + n, 104 + n];                // chiziqdan bordyurgacha 0,1 m
+    else if (dOut[i] <= 4.5) { const x = i % cw, y = (i / cw) | 0, s = ((x + y) / 10 | 0) % 2; [r, g, b] = s ? [235, 235, 235] : [40, 40, 40]; }  // bordyur
+    else [r, g, b] = [100 + n, 160 + n, 80 + n];
+    px[i * 4] = r; px[i * 4 + 1] = g; px[i * 4 + 2] = b; px[i * 4 + 3] = 255;
+  }
+  tc.putImageData(img, 0, 0);
+  for (const p of paints) { setT(tc, p.f); p.fn(tc); }
+  tc.setTransform(1, 0, 0, 1, 0, 0);
+  const texture = new THREE.CanvasTexture(tex); texture.anisotropy = 8; texture.colorSpace = THREE.SRGBColorSpace;
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(cw / PX, ch / PX), new THREE.MeshStandardMaterial({ map: texture, roughness: 0.95 }));
+  ground.rotation.x = -Math.PI / 2; ground.position.set(X0 + cw / PX / 2, 0.005, Z0 + ch / PX / 2); root.add(ground);
+  const drivable = (x, z) => { const i = Math.floor((x - X0) * PX), j = Math.floor((z - Z0) * PX); return i >= 0 && j >= 0 && i < cw && j < ch && road01[j * cw + i] === 1; };
+  const nearRoad = (x, z, r) => { for (let a = -r; a <= r; a += 2) for (let b = -r; b <= r; b += 2) if (drivable(x + a, z + b)) return true; return false; };
+  // daraxtlar
+  const trunk = mat(0x6d4c41), leaf = mat(0x2e7d32);
+  for (let i = 0, n = 0; i < 400 && n < 70; i++) {
+    const x = X0 + rnd() * cw / PX, z = Z0 + rnd() * ch / PX; if (nearRoad(x, z, 5) || (x > 3 && x < 30 && z > -26 && z < 10)) continue; n++;
+    const t = new THREE.Group(); box(t, 0.3, 1.6, 0.3, 0, 0.8, 0, trunk);
+    const lf = new THREE.Mesh(new THREE.ConeGeometry(1.4, 3.4, 8), leaf); lf.position.y = 3; t.add(lf); t.position.set(x, 0, z); root.add(t);
+  }
+  const height = (x, z) => { for (const r of ramps) { const [u, v] = W2L(r.f, x, z); if (Math.abs(u) <= r.hw && v > r.v0 && v < r.v3) return r.hAt(v); } return 0; };
+  return { root, mods, lights, path, drivable, height, W, RW, start: { x: 0, z: D / 2 + 0.6, h: 0 }, bounds: { X0, Z0, w: cw / PX, h: ch / PX } };
 }
 
 function buildWorld(scene) {
   scene.background = new THREE.Color(0x9fd3f5);
-  scene.fog = new THREE.Fog(0x9fd3f5, 60, 160);
+  scene.fog = new THREE.Fog(0x9fd3f5, 70, 190);
   scene.add(new THREE.HemisphereLight(0xffffff, 0x5a7a3a, 0.9));
   const sun = new THREE.DirectionalLight(0xffffff, 1.1); sun.position.set(20, 40, 10); scene.add(sun);
-  const grass = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshStandardMaterial({ color: 0x6aa84f }));
-  grass.rotation.x = -Math.PI / 2; scene.add(grass);
-  const asphalt = new THREE.MeshStandardMaterial({ color: 0x55595f, roughness: 0.95 });
-  const white = new THREE.MeshBasicMaterial({ color: 0xffffff });
-  const flat = (w, l, x, z, mat, y = 0.01) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, l), mat); m.rotation.x = -Math.PI / 2; m.position.set(x, y, z); scene.add(m); return m; };
-  flat(10, 110, 0, -49, asphalt); flat(19, 20, 4.5, -94, asphalt, 0.012);
-  // chegara chiziqlari
-  flat(0.15, 90, -5, -39, white, 0.02); flat(0.15, 90, 5, -39, white, 0.02);
-  flat(0.15, 20, -5, -94, white, 0.02); flat(9, 0.15, 9.5, -84, white, 0.02); flat(19, 0.15, 4.5, -104, white, 0.02);
-  flat(0.15, 20, 14, -94, white, 0.022);
-  // start chizig'i
-  for (let i = 0; i < 10; i++) flat(0.5, 0.5, -4.5 + i, 3, new THREE.MeshBasicMaterial({ color: i % 2 ? 0x111111 : 0xffffff }), 0.02);
-  // konuslar
-  const coneMat = new THREE.MeshStandardMaterial({ color: 0xff6a00 }), band = new THREE.MeshStandardMaterial({ color: 0xffffff });
-  const cones = CONES.map(c => {
-    const g = new THREE.Group();
-    const k = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.7, 16), coneMat); k.position.y = 0.35; g.add(k);
-    const b = new THREE.Mesh(new THREE.CylinderGeometry(0.135, 0.165, 0.1, 16), band); b.position.y = 0.4; g.add(b);
-    const base = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.04, 0.5), coneMat); base.position.y = 0.02; g.add(base);
-    g.position.set(0, 0, c.z); scene.add(g);
-    // yo'nalish strelkasi
-    const arrow = flat(1.2, 0.5, c.side === "L" ? -2.2 : 2.2, c.z, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6 }), 0.02);
-    return { ...c, mesh: g, hit: false, passed: false, arrow };
-  });
-  // estakada
-  const concrete = new THREE.MeshStandardMaterial({ color: 0xb0aaa0, roughness: 0.9 });
-  const rampGeo = (z0, z1, h0, h1) => {
-    const len = Math.abs(z1 - z0), ang = Math.atan2(h1 - h0, len);
-    const m = new THREE.Mesh(new THREE.BoxGeometry(RAMP.halfW * 2, 0.12, Math.hypot(len, h1 - h0)), concrete);
-    m.position.set(0, (h0 + h1) / 2 - 0.06, (z0 + z1) / 2); m.rotation.x = ang; scene.add(m);
-  };
-  rampGeo(RAMP.z0, RAMP.z1, 0, RAMP.h); rampGeo(RAMP.z1, RAMP.z2, RAMP.h, RAMP.h); rampGeo(RAMP.z2, RAMP.z3, RAMP.h, 0);
-  for (const sx of [-1, 1]) { // yon devorchalar
-    const side = new THREE.Mesh(new THREE.BoxGeometry(0.15, RAMP.h, RAMP.z1 - RAMP.z2), concrete);
-    side.position.set(sx * RAMP.halfW, RAMP.h / 2, (RAMP.z1 + RAMP.z2) / 2); scene.add(side);
-  }
-  const yellow = new THREE.MeshBasicMaterial({ color: 0xffd600, transparent: true, opacity: 0.85 });
-  flat(RAMP.halfW * 2, RAMP.stop1 - RAMP.stop0, 0, (RAMP.stop0 + RAMP.stop1) / 2, yellow, RAMP.h + 0.01);
-  flat(RAMP.halfW * 2, 0.15, 0, RAMP.stop0, white, RAMP.h + 0.02);
-  // garaj (qizil-oq ustunlar va to'siqlar)
-  const red = new THREE.MeshStandardMaterial({ color: 0xd32f2f }), wht = new THREE.MeshStandardMaterial({ color: 0xffffff });
-  const post = (x, z) => { for (let i = 0; i < 4; i++) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.3, 0.15), i % 2 ? wht : red); p.position.set(x, 0.15 + i * 0.3, z); scene.add(p); } };
-  const rail = (x0, z0, x1, z1) => { const len = Math.hypot(x1 - x0, z1 - z0); const r = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.08, len), red);
-    r.position.set((x0 + x1) / 2, 0.9, (z0 + z1) / 2); r.rotation.y = Math.atan2(x1 - x0, z1 - z0); scene.add(r); };
-  [[GARAGE.x0, GARAGE.z0], [GARAGE.x1, GARAGE.z0], [GARAGE.x0, GARAGE.z1], [GARAGE.x1, GARAGE.z1]].forEach(([x, z]) => post(x, z));
-  rail(GARAGE.x0, GARAGE.z0, GARAGE.x1, GARAGE.z0); rail(GARAGE.x0, GARAGE.z1, GARAGE.x1, GARAGE.z1); rail(GARAGE.x1, GARAGE.z0, GARAGE.x1, GARAGE.z1);
-  flat(GARAGE.x1 - GARAGE.x0, GARAGE.z1 - GARAGE.z0, (GARAGE.x0 + GARAGE.x1) / 2, (GARAGE.z0 + GARAGE.z1) / 2,
-    new THREE.MeshBasicMaterial({ color: 0x2e7dd1, transparent: true, opacity: 0.35 }), 0.03);
-  // atrof: daraxtlar, bino, bayroq
-  const trunk = new THREE.MeshStandardMaterial({ color: 0x6d4c41 }), leaf = new THREE.MeshStandardMaterial({ color: 0x2e7d32 });
-  for (let i = 0; i < 26; i++) {
-    const x = (i % 2 ? 1 : -1) * (11 + (i * 7) % 9), z = 8 - i * 4.6;
-    if (z < -82 && x > 0) continue;
-    const t = new THREE.Group(), tr = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.2, 1.6), trunk); tr.position.y = 0.8;
-    const lf = new THREE.Mesh(new THREE.ConeGeometry(1.4, 3.4, 8), leaf); lf.position.y = 3; t.add(tr, lf); t.position.set(x, 0, z); scene.add(t);
-  }
-  const bld = new THREE.Mesh(new THREE.BoxGeometry(20, 7, 9), new THREE.MeshStandardMaterial({ color: 0xf1ede4 }));
-  bld.position.set(-24, 3.5, -10); scene.add(bld);
-  const roofB = new THREE.Mesh(new THREE.BoxGeometry(20.6, 0.5, 9.6), new THREE.MeshStandardMaterial({ color: 0x2e6fbd })); roofB.position.set(-24, 7.2, -10); scene.add(roofB);
-  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 9), new THREE.MeshStandardMaterial({ color: 0xcfd8dc })); pole.position.set(-12, 4.5, 2); scene.add(pole);
-  [0x1eb4e6, 0xffffff, 0x1eb53a].forEach((c, i) => { const f = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.4, 1.8), new THREE.MeshStandardMaterial({ color: c, side: THREE.DoubleSide }));
-    f.position.set(-12, 8.6 - i * 0.42, 2.95); scene.add(f); });
-  // tartibga soluvchi (qo'llari yon tomonga yoyilgan — YHQ'dagi tartibga soluvchi signali)
+  const grass = new THREE.Mesh(new THREE.PlaneGeometry(1000, 1000), new THREE.MeshStandardMaterial({ color: 0x64a04c }));
+  grass.rotation.x = -Math.PI / 2; grass.position.y = -0.01; scene.add(grass);
+  // o'quv binosi va bayroq (yo'llardan sharqda)
+  const bld = new THREE.Mesh(new THREE.BoxGeometry(9, 7, 20), new THREE.MeshStandardMaterial({ color: 0xf1ede4 }));
+  bld.position.set(22, 3.5, -12); scene.add(bld);
+  const roofB = new THREE.Mesh(new THREE.BoxGeometry(9.6, 0.5, 20.6), new THREE.MeshStandardMaterial({ color: 0x2e6fbd })); roofB.position.set(22, 7.2, -12); scene.add(roofB);
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 9), new THREE.MeshStandardMaterial({ color: 0xcfd8dc })); pole.position.set(12, 4.5, 4); scene.add(pole);
+  [0x1eb4e6, 0xffffff, 0x1eb53a].forEach((c, i) => { const f = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.4, 0.02), new THREE.MeshStandardMaterial({ color: c, side: THREE.DoubleSide }));
+    f.position.set(12.95, 8.6 - i * 0.42, 4); scene.add(f); });
+  // yo'l harakati xodimi — start oldida, yo'ldan tashqarida (bezak)
   loadModel("police").then(src => {
     const o = src.clone(true), piv = new THREE.Group(); piv.add(o);
     const box = new THREE.Box3().setFromObject(piv), k = 1.8 / box.getSize(new THREE.Vector3()).y;
     piv.scale.setScalar(k); piv.updateMatrixWorld(true);
     const b2 = new THREE.Box3().setFromObject(piv), c = b2.getCenter(new THREE.Vector3());
-    piv.position.set(-7 - c.x, -b2.min.y, -4 - c.z); scene.add(piv);
+    piv.position.set(7 - c.x, -b2.min.y, 1 - c.z); piv.rotation.y = 0; scene.add(piv);
     const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.12, 20), new THREE.MeshStandardMaterial({ color: 0xffffff }));
-    stand.position.set(-7, 0.06, -4); scene.add(stand);
+    stand.position.set(7, 0.06, 1); scene.add(stand);
   }).catch(() => {});
-  return cones;
 }
 
 // ---------- O'YIN ----------
@@ -215,8 +521,8 @@ const Drive = {
     this.renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     this.scene = new THREE.Scene();
-    this.camera = new THREE.PerspectiveCamera(60, 1, 0.1, 400);
-    this.cones = buildWorld(this.scene);
+    this.camera = new THREE.PerspectiveCamera(60, 1, 0.1, 500);
+    buildWorld(this.scene);
     addEventListener("resize", () => this.resize());
   },
   start(carId) {
@@ -224,12 +530,14 @@ const Drive = {
     this.init();
     ui("game").style.display = "block"; this.resize();
     const spec = CARS[this.carId];
+    if (this.course) { this.scene.remove(this.course.root); this.course.root.traverse(o => { o.geometry?.dispose(); o.material?.map?.dispose?.(); }); }
+    this.course = makeCourse(spec); this.scene.add(this.course.root);
     if (this.carObj) this.scene.remove(this.carObj);
     this.carObj = carMesh(spec); this.scene.add(this.carObj); this.spec = spec;
-    this.car = { x: 0, z: 0, h: 0, v: 0, steer: 0, y: 0 };
-    this.cones.forEach(c => { c.hit = false; c.passed = false; c.mesh.rotation.set(0, 0, 0); c.mesh.position.set(0, 0, c.z); });
-    Object.assign(this, { t: 0, pen: 0, step: 0, log: [], stopZ: null, rolled: false, rampDone: false, wallHit: false, frontWarn: false, keys: {} });
-    this.say("1-mashq: \"Ilon\" — konuslarni strelka ko'rsatgan tomondan aylanib o'ting");
+    const s0 = this.course.start;
+    this.car = { x: s0.x, z: s0.z, h: s0.h, v: 0, steer: 0, y: 0 };
+    Object.assign(this, { t: 0, pen: 0, mi: 0, log: [], edge: false, edgeT: 0, speeding: false, signal: false, prevFv: null, result: null, keys: {} });
+    this.say(`1-mashq: ${this.course.mods[0].name}. Tezlik — 20 km/soatgacha`);
     this.run = true; this.last = performance.now(); const gen = this.gen = (this.gen || 0) + 1;
     requestAnimationFrame(t => this.loop(t, gen));
   },
@@ -241,10 +549,10 @@ const Drive = {
   },
   toggleCam() { this.camMode = (this.camMode + 1) % 3; },
   say(t) { const m = ui("hMsg"); m.textContent = t; m.style.display = "block"; this.msgT = 4; },
-  penalty(p, why) {
-    this.pen += p; this.log.push(why); this.say(`⚠️ ${why} (+${p})`);
+  err(why) {
+    this.pen += 1; this.log.push(why); this.say(`⚠️ ${why}`);
     window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred("warning");
-    if (this.pen > PEN_LIMIT) this.end(false, "Jarima ballari limitdan oshdi");
+    if (this.pen >= MAX_ERR) this.end(false, `${MAX_ERR} ta xato: ${this.log.join("; ")}`);
   },
   loop(now, gen) {
     if (!this.run || gen !== this.gen) return;
@@ -253,77 +561,65 @@ const Drive = {
     requestAnimationFrame(t => this.loop(t, gen));
   },
   fwd() { return [Math.sin(this.car.h), -Math.cos(this.car.h)]; },
+  front() { const [fx, fz] = this.fwd(), L = this.spec.len / 2; return [this.car.x + fx * L, this.car.z + fz * L]; },
+  rear() { const [fx, fz] = this.fwd(), L = this.spec.len / 2; return [this.car.x - fx * L, this.car.z - fz * L]; },
   corners() {
     const c = this.car, [fx, fz] = this.fwd(), rx = -fz, rz = fx, L = this.spec.len / 2, W = this.spec.wid / 2;
     return [[L, W], [L, -W], [-L, W], [-L, -W]].map(([a, b]) => [c.x + fx * a + rx * b, c.z + fz * a + rz * b]);
   },
+  rearCorners() { return this.corners().slice(2); },
   update(dt) {
-    const c = this.car, k = this.keys, s = this.spec;
+    const c = this.car, k = this.keys, s = this.spec, C = this.course;
     this.t += dt;
     if (this.msgT > 0 && (this.msgT -= dt) <= 0) ui("hMsg").style.display = "none";
+    for (const L of C.lights) L.show(this.t);
     // fizika
     const [fx, fz] = this.fwd();
-    const hF = rampHeight(c.x + fx * s.wb / 2, c.z + fz * s.wb / 2), hR = rampHeight(c.x - fx * s.wb / 2, c.z - fz * s.wb / 2);
+    const hF = C.height(c.x + fx * s.wb / 2, c.z + fz * s.wb / 2), hR = C.height(c.x - fx * s.wb / 2, c.z - fz * s.wb / 2);
     const slope = Math.atan2(hF - hR, s.wb);                 // >0 — tepaga qarab turibdi
-    const hold = k.brake && !k.gas && !k.reverse && Math.abs(c.v) < 0.05;   // tormoz bosilgan holda turibdi
-    if (k.gas) c.v = c.v < 0 ? c.v + 6 * dt : Math.min(8, c.v + s.acc * dt);
+    const hold = k.brake && !k.gas && !k.reverse && Math.abs(c.v) < 0.05;
+    if (k.gas) c.v = c.v < 0 ? c.v + 6 * dt : Math.min(13, c.v + s.acc * (1 - c.v / 16) * dt);
     else if (k.reverse) c.v = c.v > 0.05 ? c.v - 6 * dt : Math.max(-2.5, c.v - 1.6 * dt);
-    else if (k.brake) c.v -= Math.sign(c.v) * Math.min(Math.abs(c.v), 6 * dt);
+    else if (k.brake) c.v -= Math.sign(c.v) * Math.min(Math.abs(c.v), 7 * dt);
     else c.v -= Math.sign(c.v) * Math.min(Math.abs(c.v), 0.6 * dt);
     if (hold) c.v = 0; else c.v -= 9.8 * Math.sin(slope) * dt * 0.75;          // qiyalikda orqaga ketish
-    const target = k.left ? -0.55 : k.right ? 0.55 : 0;
+    const target = k.left ? -STEER : k.right ? STEER : 0;
     c.steer += (target - c.steer) * Math.min(1, dt * 6);
+    // velosiped modeli: orqa o'q yon tomonga sirpanmaydi, mashina orqa o'q atrofida buriladi
+    const rx = c.x - fx * s.wb / 2 + fx * c.v * dt, rz = c.z - fz * s.wb / 2 + fz * c.v * dt;
     c.h += (c.v / s.wb) * Math.tan(c.steer) * dt;
-    c.x += Math.sin(c.h) * c.v * dt; c.z -= Math.cos(c.h) * c.v * dt;
+    c.x = rx + Math.sin(c.h) * s.wb / 2; c.z = rz - Math.cos(c.h) * s.wb / 2;
     c.y = (hF + hR) / 2; c.pitch = slope;
-    const corners = this.corners();
-    // maydondan chiqish
-    if (corners.some(([x, z]) => !onCourse(x, z))) return this.end(false, "Mashina avtodrom chegarasidan chiqib ketdi");
-    // estakadadan yiqilish
-    const onRampZ = c.z < RAMP.z0 - 1 && c.z > RAMP.z3 + 1;
-    if (onRampZ && c.y > 0.3 && Math.abs(c.x) > RAMP.halfW - 0.6) return this.end(false, "Estakadadan tushib ketdingiz");
-    if (this.step === 1 && c.z < RAMP.z1 && c.z > RAMP.z2 && c.y < 0.3)
-      return this.end(false, "Estakada mashqi bajarilmadi (aylanib o'tildi)");
-    // 1) ilon
-    for (const cn of this.cones) {
-      const near = corners.some(([x, z]) => Math.hypot(x, z - cn.z) < 0.45) || Math.hypot(c.x, c.z - cn.z) < s.wid / 2 + 0.2;
-      if (!cn.hit && near) {
-        cn.hit = true; cn.mesh.rotation.z = Math.PI / 2.2; cn.mesh.position.x += 0.4; this.penalty(3, "Konusni urib yubordingiz");
-      }
-      if (!cn.passed && c.z < cn.z) {
-        cn.passed = true;
-        if (cn.side === "L" ? c.x > 0 : c.x < 0) this.penalty(3, `Konusni ${cn.side === "L" ? "chap" : "o'ng"} tomondan aylanish kerak edi`);
-      }
+    // yo'ldan chiqish va chegara chizig'ini bosish
+    if (!C.drivable(c.x, c.z)) return this.end(false, "Mashina avtodrom yo'lidan chiqib ketdi");
+    if (this.corners().some(([x, z]) => !C.drivable(x, z))) {
+      if (!this.edge) { this.edge = true; this.err("Chegara chizig'ini bosdingiz (bordyurga tegdingiz)"); if (!this.run) return; }
+      this.edgeT = 0;
+    } else if (this.edge && (this.edgeT += dt) > 0.7) this.edge = false;
+    // svetofor: qizil ishorada to'xtash chizig'idan o'tish
+    const [fxp, fzp] = this.front();
+    for (const L of C.lights) {
+      const fv = W2L(L.f, fxp, fzp)[1], pv = this.prevFv?.get(L) ?? fv; (this.prevFv ||= new Map()).set(L, fv);
+      const p = L.phase(this.t);
+      if (p === "red" && ((pv < L.stopS && fv >= L.stopS) || (pv > L.stopN && fv <= L.stopN))) this.err("Svetoforning qizil ishorasida to'xtash chizig'idan o'tdingiz");
+      if (!this.run) return;
     }
-    if (this.step === 0 && this.cones.every(x => x.passed)) { this.step = 1; this.say("2-mashq: estakadaga chiqing va sariq zonada to'xtang"); }
-    // 2) estakada
-    if (this.step === 1) {
-      const frontZ = c.z + fz * s.len / 2;
-      if (this.stopZ === null && Math.abs(c.v) < 0.05 && c.y > RAMP.h - 0.1 && frontZ <= RAMP.stop1 && frontZ >= RAMP.stop0) {
-        this.stopZ = c.z; this.say("✅ To'xtadingiz. Endi orqaga ketmasdan yo'lda davom eting");
-      }
-      if (this.stopZ !== null && !this.rolled && c.z - this.stopZ > 0.3) { this.rolled = true; this.penalty(3, "Estakadada orqaga ketib qoldingiz"); }
-      if (frontZ < RAMP.stop0 - 0.3 && this.stopZ === null && !this.rampDone) { this.rampDone = true; this.penalty(3, "Sariq zonada to'xtamadingiz"); }
-      if (c.z < RAMP.z3 - 2) { this.step = 2; this.say("3-mashq: garajdan o'tib, unga ORQA bilan kiring va to'xtang"); }
-    }
-    // 3) garaj
-    if (this.step === 2) {
-      const inBox = ([x, z]) => x > GARAGE.x0 && x < GARAGE.x1 && z > GARAGE.z0 && z < GARAGE.z1;
-      const hitWall = corners.some(([x, z]) =>
-        (x > GARAGE.x0 - 0.1 && x < GARAGE.x1 + 0.1 && (Math.abs(z - GARAGE.z0) < 0.12 || Math.abs(z - GARAGE.z1) < 0.12)) ||
-        (Math.abs(x - GARAGE.x1) < 0.12 && z > GARAGE.z0 && z < GARAGE.z1));
-      if (hitWall && !this.wallHit) this.penalty(3, "Garaj to'sig'iga tegdingiz");
-      this.wallHit = hitWall;
-      if (corners.every(inBox) && Math.abs(c.v) < 0.05) {
-        const facingOut = Math.sin(c.h) < -0.85;   // old tomoni yo'lga (−x) qaragan
-        if (facingOut) return this.end(true);
-        if (!this.frontWarn) { this.frontWarn = true; this.say("Garajga ORQA bilan kirish kerak — chiqib, qaytadan kiring"); }
-      }
+    // mashqlar
+    const m = C.mods[this.mi], kmh = Math.abs(c.v) * KMH;
+    if (kmh < 18) this.speeding = false;
+    else if (kmh > 20.5 && !(m.fast && m.fast(this)) && !this.speeding) { this.speeding = true; this.err("Avtodromda tezlik 20 km/soatdan oshmasligi kerak (3.24 belgisi)"); if (!this.run) return; }
+    m.tick?.(this, dt); if (!this.run) return;
+    if (!m.custom && m.fe && W2L(m.fe, c.x, c.z)[1] > 0) m.done = true;
+    if (m.done && this.mi < C.mods.length - 1) {
+      this.mi++; const n = C.mods[this.mi];
+      if (n.msg) this.say(n.msg);
+      else if (!n.hide) this.say(`${C.mods.filter((x, i) => i <= this.mi && !x.hide).length}-mashq: ${n.name}`);
     }
     if (this.t > TIME_LIMIT) return this.end(false, `Vaqt tugadi (${TIME_LIMIT / 60} daqiqa)`);
+    const shown = C.mods.filter(x => !x.hide), idx = C.mods.slice(0, this.mi + 1).filter(x => !x.hide).length;
     ui("hTime").textContent = `⏱ ${this.t.toFixed(0)} s`;
-    ui("hStep").textContent = `${Math.round(Math.abs(c.v) * 3.6)} km/soat · ${Math.min(this.step + 1, 3)}/3`;
-    ui("hPen").textContent = `Jarima: ${this.pen}/${PEN_LIMIT}`;
+    ui("hStep").textContent = `${Math.round(kmh)} km/soat · ${Math.max(1, idx)}/${shown.length}`;
+    ui("hPen").textContent = `Xato: ${this.pen}/${MAX_ERR}`;
   },
   render(dt) {
     const c = this.car, o = this.carObj;
@@ -333,7 +629,7 @@ const Drive = {
     const [fx, fz] = this.fwd(), cam = this.camera;
     let tp, look;
     if (this.camMode === 0) { tp = new THREE.Vector3(c.x - fx * 7, c.y + 3.2, c.z - fz * 7); look = new THREE.Vector3(c.x + fx * 4, c.y + 0.8, c.z + fz * 4); }
-    else if (this.camMode === 1) { tp = new THREE.Vector3(c.x, c.y + 18, c.z + 0.01); look = new THREE.Vector3(c.x, 0, c.z); }
+    else if (this.camMode === 1) { tp = new THREE.Vector3(c.x, c.y + 20, c.z + 0.01); look = new THREE.Vector3(c.x, 0, c.z); }
     else { tp = new THREE.Vector3(c.x + fx * 0.2, c.y + 1.25, c.z + fz * 0.2); look = new THREE.Vector3(c.x + fx * 10, c.y + 1, c.z + fz * 10); }
     if (this.camMode === 2) cam.position.copy(tp); else cam.position.lerp(tp, Math.min(1, dt * 5));
     cam.lookAt(look);
@@ -342,10 +638,10 @@ const Drive = {
   },
   async end(passed, reason) {
     if (!this.run) return; this.run = false;
-    const time = Math.round(this.t);
+    const time = Math.round(this.t); this.result = { passed, reason, time, pen: this.pen, log: [...this.log] };
     if (passed && window.api) { try { window.setMe(await window.api("/api/result", { kind: "drive", passed: true, time })); } catch (e) {} }
     ui("game").style.display = "none";
-    window.showDriveResult(passed, reason, time, this.pen, PEN_LIMIT);
+    window.showDriveResult?.(passed, reason, time, this.pen, MAX_ERR);
   },
   stop() { this.run = false; ui("game").style.display = "none"; window.home(); },
 };
