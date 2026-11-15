@@ -28,10 +28,10 @@ Avtodrom **IIV vazirining 2024-yil 18-yanvardagi 27-son buyrug'i** bilan tasdiql
 - **Kabina:** haydovchi o'rnidan ko'rinish, kapot, spidometr, uzatma va povorotnik ko'rsatkichlari, salon ko'zgusi va ikki yon ko'zgu. Kamera: kabina / orqadan / tepadan.
 - **Grafika va ovoz:** osmon, soyalar, 3D bordyurlar, 2 m panjara (talablarning 9-bandi), chiroq ustunlari; dvigatel ovozi (tezlik va gazga qarab), povorotnik chiqillashi, signal, bordyurga urilish ovozi va telefon titrashi.
 - **Fizika:** velosiped modeli. Mashina orqa o'q atrofida buriladi, rulning eng katta burchagi 38°. Qiyalikda tormozni qo'yib yuborsangiz, mashina orqaga ketadi.
-- **Tekshiriladi:** burilish chirog'i (YHQ 45-band: START'da harakatni boshlash, chorrahada burilish, parkovkaga kirish va chiqish), chegara chizig'i va bordyurga tegish, avtodromda 20 km/soatdan oshish, piyodaga yo'l bermaslik, estakadada va temir yo'l oldida to'xtamaslik, estakadada orqaga ketish, svetoforning qizil ishorasi, parkovkada bordyurga yaqin turmaslik, tezlashish bo'lagidagi tezliklar, avariya signaliga kech javob.
+- **Tekshiriladi:** xavfsizlik kamari (YHQ 9-band: harakatdan oldin taqilgan bo'lishi), burilish chirog'i (YHQ 45-band: START'da harakatni boshlash, chorrahada burilish, parkovkaga kirish va chiqish), chegara chizig'i va bordyurga tegish, avtodromda 20 km/soatdan oshish, piyodaga yo'l bermaslik, estakadada va temir yo'l oldida to'xtamaslik, estakadada orqaga ketish, svetoforning qizil ishorasi, parkovkada bordyurga yaqin turmaslik, tezlashish bo'lagidagi tezliklar, avariya signaliga kech javob.
 - **O'yin shartlari** (buyruqda yo'q, o'yin uchun tanlangan): 3 ta xatoda imtihon to'xtaydi; estakadada orqaga 0,3 m dan ko'p ketish xato; avariya mashqida tormoz 1 soniya ichida bosilishi va tezlik kamida 15 km/soat bo'lishi kerak; boks va parkovkadagi nazorat chizig'i sxemadagi joyiga yaqin chizilgan (sxemada aniq raqam berilmagan); vaqt — 15 daqiqa.
 - **Tekshiruv:** avtopilot testi 5 ta mashinaning har biri bilan 12 ta mashqni xatosiz o'tdi.
-- **Kompyuterda:** ↑ gaz, ↓ yoki probel tormoz, ← → rul, P R N D uzatma, Q/E povorotnik, H signal, C kamera.
+- **Kompyuterda:** ↑ gaz, ↓ yoki probel tormoz, ← → rul, P R N D uzatma, Q/E povorotnik, B kamar, H signal, C kamera.
 - 3D grafika Three.js (MIT litsenziyasi) yordamida chiziladi. Kutubxona `webapp/vendor/` ichida, internetdan yuklanmaydi.
 
 ![3D avtodrom](avtodrom-3d.png)
