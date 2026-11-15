@@ -161,7 +161,7 @@ def make_bot():
 
     def menu(uid):
         u = get_user(uid)
-        rows = [[InlineKeyboardButton(text="🚗 Avtodrom va test", web_app=WebAppInfo(url=WEBAPP_URL))]]
+        rows = [[InlineKeyboardButton(text="🚗 Avtodrom va test", web_app=WebAppInfo(url=WEBAPP_URL))]] if WEBAPP_URL.startswith("https://") else []
         if not u["paid"]:
             rows.append([InlineKeyboardButton(text=f"⭐ To'liq versiya — {PRICE_STARS} Stars", callback_data="buy")])
         return InlineKeyboardMarkup(inline_keyboard=rows)
@@ -209,7 +209,9 @@ async def main():
     if BOT_TOKEN:
         bot, dp = make_bot()
     elif not DEV:
-        raise SystemExit("BOT_TOKEN topilmadi. .env faylini to'ldiring (README.md).")
+        raise SystemExit("BOT_TOKEN topilmadi. Railway: service → Variables → BOT_TOKEN qo'shing (yoki .env faylini to'ldiring).")
+    if not WEBAPP_URL.startswith("https://"):
+        logging.warning("WEBAPP_URL yo'q: Railway'da Settings → Networking → Generate Domain qiling. Hozircha Mini App tugmasi ko'rinmaydi.")
     runner = web.AppRunner(make_web(bot))
     await runner.setup()
     await web.TCPSite(runner, "0.0.0.0", PORT).start()
