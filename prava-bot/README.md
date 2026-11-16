@@ -43,7 +43,7 @@ Avtodrom **IIV vazirining 2024-yil 18-yanvardagi 27-son buyrug'i** bilan tasdiql
 | Qism | Bepul | To'liq versiya |
 |---|---|---|
 | Avtodrom | ✅ | ✅ |
-| Mashq testi | 10 ta savol | barcha savollar |
+| Mashq testi | 10 ta savol | 1110 ta savol, 65 mavzu |
 | Imtihon (20 savol, 25 daqiqa, 2 tagacha xato) | 🔒 | ✅ |
 
 - To'lov **Telegram Stars** orqali qabul qilinadi (narx: `.env` dagi `PRICE_STARS`).
@@ -90,15 +90,21 @@ Bot, Mini App va baza bitta **Cloudflare Worker**da ishlaydi (`worker/` papkasi)
 Savollar `questions.json` faylida. Har bir savol:
 
 ```json
-{"id": 52, "t": "Mavzu", "s": "stop", "q": "Savol matni", "o": ["Javob 1", "Javob 2", "Javob 3"], "a": 1, "e": "Izoh", "src": "78-band"}
+{"id": "B-140", "t": "Mavzu", "q": "Savol matni", "o": ["Javob 1", "Javob 2", "Javob 3", "Javob 4"], "a": 1, "e": "Izoh", "src": "79-band", "iq": "YHQ'dan asl iqtibos"}
 ```
 
 - `a` — to'g'ri javobning raqami (0 dan boshlanadi).
-- `src` — YHQdagi manba (band yoki ilova). Mashq rejimida izoh ostida ko'rsatiladi.
+- `src` — YHQdagi manba (band yoki ilova), `iq` — qonundan asl iqtibos. Ikkalasi ham mashq rejimida izoh ostida ko'rsatiladi.
+- Mashq rejimida mavzu tanlanadi va har safar 20 ta savol beriladi; imtihonda barcha savollardan tasodifiy 20 ta.
 - `s` — ixtiyoriy belgi rasmi: `stop`, `giveway`, `noentry`, `warning`, `straight`, `crossing`, `redlight`, `yellow`, `rail`, `solid`, `dashed`.
 - Yangi savol qo'shgach, botni qayta ishga tushiring.
 
-✅ Barcha 51 ta savol amaldagi YHQ matniga (Vazirlar Mahkamasining 2022-yil 12-apreldagi 172-son qarori, o'zgartishlari bilan) band ma'nosida solishtirib tekshirilgan. Har bir savolda manba bandi (`src`) bor. YHQ o'zgarsa, tegishli savollarni qayta tekshiring.
+✅ Bazada **1110 ta savol**, 65 ta mavzu bo'yicha. Har bir savol amaldagi YHQ (Vazirlar Mahkamasining 2022-yil 12-apreldagi 172-son qarori, o'zgartishlari bilan) bilan tekshirilgan:
+- 1059 ta savolda qonundan asl iqtibos (`iq`) bor. 1047 tasi YHQ matnida so'zma-so'z topildi, qolgan 12 tasi (jadval va formulalar) qo'lda tasdiqlandi.
+- Iqtibos ko'rsatilgan bandda turgani tekshirildi; 12¹–12³-bandlar manbasi tuzatildi.
+- To'g'ri javob iqtibosga mosligi avtomatik solishtirildi; shubhali 68 ta va tasodifiy 30 ta savol qo'lda ko'rib chiqildi — xato topilmadi.
+
+YHQ o'zgarsa, tegishli savollarni qayta tekshiring.
 
 ## Fayllar
 
