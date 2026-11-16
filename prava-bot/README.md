@@ -96,6 +96,7 @@ Savollar `questions.json` faylida. Har bir savol:
 - `a` — to'g'ri javobning raqami (0 dan boshlanadi).
 - `src` — YHQdagi manba (band yoki ilova), `iq` — qonundan asl iqtibos. Ikkalasi ham mashq rejimida izoh ostida ko'rsatiladi.
 - Mashq rejimida mavzu tanlanadi va har safar 20 ta savol beriladi; imtihonda barcha savollardan tasodifiy 20 ta.
+- **Alifbo:** bosh sahifada tanlanadi — yangi (ö, ğ, ş, ç; standart) yoki amaldagi (o', g', sh, ch). Bazadagi matn amaldagi alifboda saqlanadi, yangi alifbo ekranda almashtiriladi.
 - `s` — ixtiyoriy belgi rasmi: `stop`, `giveway`, `noentry`, `warning`, `straight`, `crossing`, `redlight`, `yellow`, `rail`, `solid`, `dashed`.
 - Yangi savol qo'shgach, botni qayta ishga tushiring.
 
