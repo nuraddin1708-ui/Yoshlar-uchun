@@ -5,6 +5,9 @@ import { DurableObject } from "cloudflare:workers";
 import QUESTIONS from "../../questions.json";
 
 const FREE_QUESTIONS = 10;
+// Yangi alifbo (ö, ğ, ş, ç): bot xabarlari shu alifboda yuboriladi (Mini App'dagi standart bilan bir xil)
+const ab = t => t.replace(/O[ʻ‘’']/g, "Ö").replace(/o[ʻ‘’']/g, "ö").replace(/G[ʻ‘’']/g, "Ğ").replace(/g[ʻ‘’']/g, "ğ")
+  .replace(/SH/g, "Ş").replace(/S[hH]/g, "Ş").replace(/sh/g, "ş").replace(/CH/g, "Ç").replace(/C[hH]/g, "Ç").replace(/ch/g, "ç");
 const enc = new TextEncoder();
 
 // ---------- BAZA ----------
@@ -82,13 +85,13 @@ async function tg(env, method, body) {
   }
 }
 const invoice = (env, uid) => ({
-  title: "Yo'l qoidasi — to'liq versiya",
-  description: `Barcha ${QUESTIONS.length} savol, imtihon rejimi va avtodrom — cheksiz.`,
-  payload: `full:${uid}`, currency: "XTR", prices: [{ label: "To'liq versiya", amount: price(env) }],
+  title: ab("Yo'l qoidasi — to'liq versiya"),
+  description: ab(`Barcha ${QUESTIONS.length} savol, imtihon rejimi va avtodrom — cheksiz.`),
+  payload: `full:${uid}`, currency: "XTR", prices: [{ label: ab("To'liq versiya"), amount: price(env) }],
 });
 function menu(env, origin, u) {
   const rows = [[{ text: "🚗 Avtodrom va test", web_app: { url: origin + "/" } }]];
-  if (!u.paid) rows.push([{ text: `⭐ To'liq versiya — ${price(env)} Stars`, callback_data: "buy" }]);
+  if (!u.paid) rows.push([{ text: ab(`⭐ To'liq versiya — ${price(env)}`) + " Stars", callback_data: "buy" }]);
   return { inline_keyboard: rows };
 }
 
@@ -97,7 +100,7 @@ async function onUpdate(env, origin, up) {
   if (up.pre_checkout_query) {          // 10 soniya ichida javob kerak — webhook javobining o'zida qaytaramiz
     const q = up.pre_checkout_query, ok = q.invoice_payload === `full:${q.from.id}`;
     return json({ method: "answerPreCheckoutQuery", pre_checkout_query_id: q.id, ok,
-      ...(ok ? {} : { error_message: "To'lovni faqat o'zingiz uchun qilishingiz mumkin." }) });
+      ...(ok ? {} : { error_message: ab("To'lovni faqat o'zingiz uchun qilishingiz mumkin.") }) });
   }
   if (up.callback_query) {
     const c = up.callback_query;
@@ -109,7 +112,7 @@ async function onUpdate(env, origin, up) {
   if (!m || !m.from) return new Response("ok");
   if (m.successful_payment) {
     const u = await store(env).setPaid(m.from.id, m.successful_payment.telegram_payment_charge_id);
-    await tg(env, "sendMessage", { chat_id: m.chat.id, text: "🎉 Rahmat! To'liq versiya ochildi.", reply_markup: menu(env, origin, u) });
+    await tg(env, "sendMessage", { chat_id: m.chat.id, text: ab("🎉 Rahmat! To'liq versiya ochildi."), reply_markup: menu(env, origin, u) });
     return new Response("ok");
   }
   const text = (m.text || "").trim(), cmd = text.split(/[\s@]/)[0];
@@ -118,12 +121,12 @@ async function onUpdate(env, origin, up) {
     const status = u.paid ? "✅ To'liq versiya ochilgan." :
       `Bepul: ${FREE_QUESTIONS} ta savol va avtodromda mashq.\nTo'liq versiya: barcha ${QUESTIONS.length} savol va imtihon rejimi.`;
     await tg(env, "sendMessage", { chat_id: m.chat.id, reply_markup: menu(env, origin, u),
-      text: `Assalomu alaykum, ${m.from.first_name || ""}! 👋\n🚦 Yo'l qoidasi — biz bilan osonroq!\n\n` +
-        `Prava imtihoniga tayyorlaning: avtodromda mashina haydang va testlarni yeching.\n\n${status}` });
+      text: `Assalomu alaykum, ${m.from.first_name || ""}! 👋\n` + ab(`🚦 Yo'l qoidasi — biz bilan osonroq!\n\n` +
+        `Prava imtihoniga tayyorlaning: avtodromda mashina haydang va testlarni yeching.\n\n${status}`) });
   } else if (cmd === "/buy") {
     await tg(env, "sendInvoice", { chat_id: m.chat.id, ...invoice(env, m.from.id) });
   } else if (cmd === "/paysupport") {
-    await tg(env, "sendMessage", { chat_id: m.chat.id, text: "To'lov bo'yicha savollar bo'lsa, shu yerga yozing — javob beramiz." });
+    await tg(env, "sendMessage", { chat_id: m.chat.id, text: ab("To'lov bo'yicha savollar bo'lsa, shu yerga yozing — javob beramiz.") });
   }
   return new Response("ok");
 }
@@ -133,10 +136,10 @@ async function setup(env, origin) {
   const res = {};
   res.webhook = await tg(env, "setWebhook", { url: origin + "/tg", secret_token: await webhookSecret(env),
     allowed_updates: ["message", "callback_query", "pre_checkout_query"], drop_pending_updates: true });
-  res.menu = await tg(env, "setChatMenuButton", { menu_button: { type: "web_app", text: "Ochish", web_app: { url: origin + "/" } } });
+  res.menu = await tg(env, "setChatMenuButton", { menu_button: { type: "web_app", text: ab("Ochish"), web_app: { url: origin + "/" } } });
   res.commands = await tg(env, "setMyCommands", { commands: [
-    { command: "start", description: "Boshlash" }, { command: "buy", description: "To'liq versiyani ochish" },
-    { command: "paysupport", description: "To'lov bo'yicha yordam" }] });
+    { command: "start", description: ab("Boshlash") }, { command: "buy", description: ab("To'liq versiyani ochish") },
+    { command: "paysupport", description: ab("To'lov bo'yicha yordam") }] });
   const me = await tg(env, "getMe", {});
   const ok = res.webhook.ok && res.menu.ok && res.commands.ok;
   const body = ok
