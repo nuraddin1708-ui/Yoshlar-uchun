@@ -64,6 +64,13 @@
   .vzres { font-weight: 800; font-size: 17px; } .vzres.ok { color: #16a34a; } .vzres.no { color: #dc2626; }
   .vzbtns { display: grid; gap: 6px; } .vzbtns .btn { margin-top: 4px; }
   #vz .exit { top: 10px; right: 10px; padding: 6px 12px; }
+  .stats.g3 { grid-template-columns: repeat(3, 1fr); } .stats.g3 .stat b { font-size: 18px; }
+  .arow { display: flex; gap: 6px; margin: 8px 0; align-items: stretch; } .arow .btn { width: auto; margin: 0; padding: 10px 14px; }
+  .arow input, .arow select, .explain textarea { flex: 1; min-width: 0; padding: 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; }
+  .explain textarea { width: 100%; box-sizing: border-box; margin: 8px 0 0; }
+  .urow { border-top: 1px solid var(--border); padding: 10px 0; } .urow small { color: var(--muted); display: block; margin-top: 3px; }
+  .ubtn { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; } .ubtn button { padding: 6px 10px; border-radius: 8px; background: var(--card); color: var(--text); border: 1px solid var(--border); font-size: 13px; }
+  .badge.bad { background: rgba(217,58,58,.15); color: var(--bad); }
   .quote { margin: 8px 0 4px; padding: 8px 10px; border-left: 3px solid var(--primary); background: rgba(127,127,127,.08); border-radius: 6px; font-size: 14px; font-style: italic; }
   .explain { margin-top: 10px; padding: 12px; border-radius: 12px; background: var(--card); font-size: 15px; line-height: 1.5; }
   .big { font-size: 44px; font-weight: 800; text-align: center; margin: 6px 0; }
@@ -173,13 +180,14 @@ let ME = null, QS = [], TOTAL = 0;
 async function api(path, body) {
   const r = await fetch(path, { method: body ? "POST" : "GET", headers: { "X-Init-Data": INIT, "Content-Type": "application/json" },
     body: body ? JSON.stringify(body) : undefined });
-  if (!r.ok) throw new Error(r.status);
+  if (!r.ok) { let m = String(r.status); try { const j = await r.json(); if (j.error) m = j.error; } catch (e) {} throw new Error(m); }
   return r.json();
 }
 
 async function load() {
   if (!INIT) { app.innerHTML = `<h1>🚦 Yo'l qoidasi</h1><p>Bu ilovani Telegram bot orqali oching.</p>`; return; }
-  try { ME = await api("/api/me"); const d = await api("/api/questions"); QS = d.questions; TOTAL = d.total; home(); }
+  try { ME = await api("/api/me"); const d = await api("/api/questions"); QS = d.questions; TOTAL = d.total;
+    if (location.hash === "#admin" && ME.admin) Admin.open(); else home(); }
   catch (e) { app.innerHTML = `<h1>Xatolik</h1><p>Ma'lumot yuklanmadi. Botni qayta oching.</p>`; }
 }
 
@@ -189,6 +197,7 @@ function home() {
     <p class="slogan">Biz bilan osonroq</p>
     <p>Salom, ${ME.name ? `<span class="noalif">${esc(ME.name)}</span>` : "do'st"}! ${ME.paid ? `<span class="badge">To'liq versiya</span>` : ""}</p>
     <div class="alif">Alifbo: <button onclick="Alif.set('yangi')" data-a="yangi">Ö ö Ş ş Ç ç Ğ ğ</button><button onclick="Alif.set('eski')" data-a="eski">O' o' Sh sh Ch ch G' g'</button></div>
+    ${ME.admin ? `<button class="tile" onclick="Admin.open()"><span class="ic">🛠</span><div><b>Admin panel</b><span>Statistika, foydalanuvchilar, narx, xabar yuborish</span></div></button>` : ""}
     <button class="tile" onclick="carSelect()"><span class="ic">🏁</span><div><b>Avtodrom</b>
       <span>3D: "B" toifaning 12 ta rasmiy mashqi</span></div></button>
     <button class="tile" onclick="Vz.open()"><span class="ic">🎬</span><div><b>Vaziyatli savollar (3D)</b>
@@ -290,7 +299,7 @@ const Test = {
   async finish(reason) {
     const s = this.st; if (s.done) return; s.done = true; clearInterval(this.timer);
     const exam = s.mode === "exam", pass = exam && !reason && s.err <= 2;
-    if (exam) { try { ME = await api("/api/result", { kind: "test", score: s.ok }); } catch (e) {} }
+    if (exam) { try { ME = { ...ME, ...(await api("/api/result", { kind: "test", score: s.ok })) }; } catch (e) {} }
     app.innerHTML = `
       <h1>${exam ? (pass ? "🎉 Imtihondan o'tdingiz!" : "😕 O'ta olmadingiz") : "Mashq tugadi"}</h1>
       ${reason ? `<p>Sabab: ${reason}</p>` : ""}
@@ -302,7 +311,7 @@ const Test = {
 };
 
 // ================= AVTODROM (3D — avtodrom3d.js) =================
-window.setMe = x => { ME = x; };
+window.setMe = x => { ME = { ...ME, ...x }; };
 function carSelect() {
   if (!window.Drive) { app.innerHTML = `<p>3D avtodrom yuklanmoqda...</p>`; return setTimeout(carSelect, 400); }
   app.innerHTML = `
@@ -379,6 +388,77 @@ addEventListener("keyup", e => {
   else if (e.key === "ArrowDown" || e.key === " ") Drive.ctl.brake = 0;
   else if (e.key === "h") Drive.horn(false);
 });
+
+// ---------- ADMIN PANEL (faqat ADMIN_IDS dagi foydalanuvchilarga) ----------
+const askYes = msg => new Promise(r => tg && tg.showConfirm ? tg.showConfirm(msg, ok => r(ok)) : r(confirm(msg)));
+const say = msg => tg && tg.showAlert ? tg.showAlert(msg) : alert(msg);
+const dt = t => t ? new Date(t * 1000).toLocaleString("uz-UZ", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—";
+const Admin = {
+  q: "", f: "", o: 0,
+  async open() {
+    app.innerHTML = `<h1>🛠 Admin panel</h1><p>Yuklanmoqda...</p>`;
+    try { this.s = await api("/api/admin/stats"); } catch (e) { app.innerHTML = `<h1>🛠 Admin panel</h1><p>Ruxsat yo'q yoki xato: ${esc(e.message)}</p><button class="btn ghost" onclick="home()">Orqaga</button>`; return; }
+    const s = this.s, card = (v, l) => `<div class="stat"><b>${v ?? 0}</b>${l}</div>`, b = s.broadcast;
+    app.innerHTML = `<h1>🛠 Admin panel</h1>
+      <div class="stats g3">${card(s.users, "foydalanuvchi")}${card(s.new1, "yangi (24 soat)")}${card(s.new7, "yangi (7 kun)")}
+        ${card(s.active1, "faol (24 soat)")}${card(s.active7, "faol (7 kun)")}${card(s.paid, "to'lagan")}
+        ${card(`${s.stars} ⭐`, "jami tushum")}${card(`${s.stars7} ⭐`, `7 kunda (${s.pays7} ta)`)}${card(s.gift, "sovg'a")}
+        ${card(s.avgTest ? `${s.avgTest}/20` : "—", "o'rtacha test")}${card(s.drivers, "avtodromdan o'tgan")}${card(s.blocked, "botni bloklagan")}</div>
+      <div class="explain"><b>💲 Narx (Telegram Stars)</b>
+        <div class="arow"><input id="aPrice" type="number" min="1" max="10000" value="${s.price}"><button class="btn" onclick="Admin.price()">Saqlash</button></div>
+        <small>Bazada ${s.questions} ta savol. Qaytarilgan to'lovlar: ${s.refunds}.</small></div>
+      <div class="explain"><b>📣 Hammaga xabar</b>
+        <textarea id="aText" rows="4" placeholder="Xabar matni (barcha foydalanuvchilarga yuboriladi)"></textarea>
+        <button class="btn" onclick="Admin.broadcast()">Yuborish</button>
+        ${b ? `<small>Oxirgi xabar: ${b.done ? "✅ tugadi" : "⏳ yuborilmoqda"} — ${b.sent} yuborildi, ${b.failed} xato, jami ${b.total} (${dt(b.started)})</small>` : ""}</div>
+      <div class="explain"><b>👥 Foydalanuvchilar</b>
+        <div class="arow"><input id="aQ" placeholder="Ism, @username yoki ID" value="${esc(this.q)}" onkeydown="if(event.key==='Enter')Admin.find()">
+          <select id="aF" onchange="Admin.find()"><option value="">Barchasi</option><option value="paid">To'lagan</option><option value="gift">Sovg'a</option><option value="free">Bepul</option></select>
+          <button class="btn" onclick="Admin.find()">🔍</button></div>
+        <div id="aU"></div></div>
+      <button class="btn ghost" onclick="home()">Bosh sahifa</button>`;
+    document.getElementById("aF").value = this.f; this.list(false);
+  },
+  find() { this.q = document.getElementById("aQ").value.trim(); this.f = document.getElementById("aF").value; this.o = 0; this.list(false); },
+  async list(more) {
+    const box = document.getElementById("aU"); if (!box) return;
+    const d = await api(`/api/admin/users?q=${encodeURIComponent(this.q)}&f=${this.f}&o=${this.o}`);
+    const rows = d.rows.map(u => `<div class="urow" id="u${u.id}">
+        <div><b class="noalif">${esc(u.name || "—")}</b> ${u.username ? `<span class="noalif">@${esc(u.username)}</span>` : ""} <small>· ID ${u.id}</small>
+          ${u.paid ? (u.gift ? `<span class="badge">🎁 sovg'a</span>` : `<span class="badge">⭐ ${u.paid_amount || ""} to'lagan</span>`) : ""} ${u.blocked ? `<span class="badge bad">bloklagan</span>` : ""}</div>
+        <small>Kelgan: ${dt(u.created_at)} · oxirgi: ${dt(u.last_seen)} · test: ${u.best_test || 0}/20 · avtodrom: ${u.best_drive ? u.best_drive + " s" : "—"}${u.paid_at ? ` · ochilgan: ${dt(u.paid_at)}` : ""}</small>
+        <div class="ubtn">${u.paid ? `<button onclick="Admin.grant(${u.id}, false)">❌ Olib qo'yish</button>` : `<button onclick="Admin.grant(${u.id}, true)">🎁 Sovg'a qilish</button>`}
+          ${u.paid && !u.gift && u.charge_id ? `<button onclick="Admin.refund(${u.id})">↩️ Pulni qaytarish</button>` : ""}
+          <button onclick="Admin.msg(${u.id})">✉️ Xabar</button></div></div>`).join("");
+    box.innerHTML = (more ? box.innerHTML.replace(/<button class="btn ghost" id="aMore"[\s\S]*$/, "") : `<small>Topildi: ${d.total}</small>`) + rows +
+      (this.o + d.rows.length < d.total ? `<button class="btn ghost" id="aMore" onclick="Admin.o += 30; Admin.list(true)">Yana ko'rsatish</button>` : "");
+  },
+  async price() {
+    const v = +document.getElementById("aPrice").value;
+    try { await api("/api/admin/price", { price: v }); say(`Narx saqlandi: ${v} ⭐`); } catch (e) { say("Xato: narx 1–10000 oralig'ida bo'lsin"); }
+  },
+  async broadcast() {
+    const t = document.getElementById("aText").value.trim(); if (!t) return say("Matn yozing");
+    if (!(await askYes(`Xabar ${this.s.users} ta foydalanuvchiga yuboriladi. Davom etamizmi?`))) return;
+    try { const r = await api("/api/admin/broadcast", { text: t }); if (r.error) return say(r.error); say(`Yuborish boshlandi: ${r.total} ta foydalanuvchi. Holatini shu sahifada ko'rasiz.`); this.open(); } catch (e) { say("Xato: " + e.message); }
+  },
+  async grant(id, on) {
+    if (!(await askYes(on ? `ID ${id} ga to'liq versiyani sovg'a qilamizmi?` : `ID ${id} dan to'liq versiyani olib qo'yamizmi?`))) return;
+    try { await api("/api/admin/grant", { id, on, notify: on }); this.list(false); } catch (e) { say("Xato: " + e.message); }
+  },
+  async refund(id) {
+    if (!(await askYes(`ID ${id} ga Stars qaytariladi va to'liq versiya yopiladi. Rozimisiz?`))) return;
+    try { const r = await api("/api/admin/refund", { id }); if (r.error) return say(r.error); say("Pul qaytarildi"); this.list(false); } catch (e) { say("Xato: " + e.message); }
+  },
+  msg(id) {
+    const row = document.getElementById("u" + id); if (row.querySelector("textarea")) return;
+    row.insertAdjacentHTML("beforeend", `<div class="arow"><textarea rows="2" placeholder="Xabar matni"></textarea><button class="btn" onclick="Admin.send(${id}, this)">Yuborish</button></div>`);
+  },
+  async send(id, btn) {
+    const t = btn.previousElementSibling.value.trim(); if (!t) return;
+    try { const r = await api("/api/admin/message", { id, text: t }); if (r.error) return say(r.error); say("Yuborildi"); btn.parentElement.remove(); } catch (e) { say("Xato: " + e.message); }
+  },
+};
 
 // ---------- ALIFBO: yangi (ö, ğ, ş, ç) yoki amaldagi (o', g', sh, ch) ----------
 // Matn bazada amaldagi alifboda saqlanadi; "yangi" tanlansa, ekrandagi barcha matn shu zahoti almashtiriladi.
