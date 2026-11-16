@@ -79,7 +79,9 @@ Bot, Mini App va baza bitta **Cloudflare Worker**da ishlaydi (`worker/` papkasi)
 7. Telegram'da botga `/start` yozing.
 8. **Instagram:** profil "bio"siga `https://t.me/BOT_NOMI` havolasini qo'ying.
 
-**Narxni o'zgartirish:** `worker/wrangler.toml` dagi `PRICE_STARS`.
+**Admin panel:** botga `/myid` yozing — Telegram ID'ingiz keladi. Cloudflare → Worker → *Settings → Variables and Secrets → Add* → turi **Secret**, nomi `ADMIN_IDS`, qiymati — ID (bir nechta bo'lsa vergul bilan). Keyin botga `/admin` yozing yoki ilova bosh sahifasidagi "🛠 Admin panel" tugmasini bosing. Panelda: statistika (foydalanuvchilar, faollik, to'lovlar, Stars tushumi), foydalanuvchini qidirish, to'liq versiyani sovg'a qilish yoki olib qo'yish, Stars'ni qaytarish (refund), bitta foydalanuvchiga yoki hammaga xabar yuborish (partiyalab), narxni o'zgartirish. Yangi to'lov bo'lsa, adminlarga bot xabar yuboradi.
+
+**Narxni o'zgartirish:** admin panelda (yoki standart qiymat — `worker/wrangler.toml` dagi `PRICE_STARS`).
 
 **Lokal sinov:** `cd worker && npm install`, `.dev.vars` faylga `BOT_TOKEN=...` va `DEV=1` yozing, `npx wrangler dev`, keyin `http://localhost:8787/?dev=1`.
 
