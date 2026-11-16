@@ -32,6 +32,9 @@
   .bar { height: 6px; background: var(--border); border-radius: 3px; margin: 8px 0 4px; overflow: hidden; }
   .bar i { display: block; height: 100%; background: var(--primary); }
   .sign { display: flex; justify-content: center; } .sign svg { width: 110px; height: 110px; }
+  .alif { display: flex; gap: 6px; align-items: center; font-size: 13px; color: var(--muted); margin: 4px 0 2px; }
+  .alif button { padding: 5px 9px; border-radius: 8px; background: var(--card); color: var(--text); border: 1px solid var(--border); font-size: 13px; }
+  .alif button.on { background: var(--primary); color: var(--ptext); border-color: var(--primary); }
   .quote { margin: 8px 0 4px; padding: 8px 10px; border-left: 3px solid var(--primary); background: rgba(127,127,127,.08); border-radius: 6px; font-size: 14px; font-style: italic; }
   .explain { margin-top: 10px; padding: 12px; border-radius: 12px; background: var(--card); font-size: 15px; line-height: 1.5; }
   .big { font-size: 44px; font-weight: 800; text-align: center; margin: 6px 0; }
@@ -142,7 +145,8 @@ function home() {
   app.innerHTML = `
     <h1>🚦 Yo'l qoidasi</h1>
     <p class="slogan">Biz bilan osonroq</p>
-    <p>Salom, ${ME.name || "do'st"}! ${ME.paid ? `<span class="badge">To'liq versiya</span>` : ""}</p>
+    <p>Salom, ${ME.name ? `<span class="noalif">${esc(ME.name)}</span>` : "do'st"}! ${ME.paid ? `<span class="badge">To'liq versiya</span>` : ""}</p>
+    <div class="alif">Alifbo: <button onclick="Alif.set('yangi')" data-a="yangi">Ö ö Ş ş Ç ç Ğ ğ</button><button onclick="Alif.set('eski')" data-a="eski">O' o' Sh sh Ch ch G' g'</button></div>
     <button class="tile" onclick="carSelect()"><span class="ic">🏁</span><div><b>Avtodrom</b>
       <span>3D: "B" toifaning 12 ta rasmiy mashqi</span></div></button>
     <button class="tile" onclick="Test.start('practice')"><span class="ic">📘</span><div><b>Mashq testi</b>
@@ -270,7 +274,7 @@ function carSelect() {
       almashtirish uchun to'xtab, tormozni bosib turing. 🔴 kamar tugmasi — xavfsizlik kamari (YHQ 9-band: harakatdan oldin taqiladi), ⬅ ➡ — burilish chiroqlari (YHQ 45-band), 📯 — signal, 🎥 — kamera (kabina / orqadan / tepadan).
       Telefonni gorizontal ushlang. Kompyuterda: ↑ gaz, ↓ tormoz, ← → rul, P R N D, Q/E povorotnik, B kamar.</div>
     <button class="btn ghost" onclick="home()">Orqaga</button>
-    <p style="font-size:12px">3D modellar (CC BY 4.0): Gentra — uzb_rx7, Malibu 2022 — slavanik24250794, Damas — own.guest,
+    <p class="noalif" style="font-size:12px">3D modellar (CC BY 4.0): Gentra — uzb_rx7, Malibu 2022 — slavanik24250794, Damas — own.guest,
       tartibga soluvchi — LokitoBlu (Sketchfab). Chevrolet nomlari GM kompaniyasining savdo belgilari.</p>`;
 }
 function showDriveResult(passed, reason, time, pen, limit) {
@@ -329,6 +333,27 @@ addEventListener("keyup", e => {
   else if (e.key === "ArrowDown" || e.key === " ") Drive.ctl.brake = 0;
   else if (e.key === "h") Drive.horn(false);
 });
+
+// ---------- ALIFBO: yangi (ö, ğ, ş, ç) yoki amaldagi (o', g', sh, ch) ----------
+// Matn bazada amaldagi alifboda saqlanadi; "yangi" tanlansa, ekrandagi barcha matn shu zahoti almashtiriladi.
+const Alif = {
+  mode: (() => { try { return localStorage.getItem("alif") || "yangi"; } catch (e) { return "yangi"; } })(),
+  conv(t) {
+    return t.replace(/O[ʻ‘’']/g, "Ö").replace(/o[ʻ‘’']/g, "ö").replace(/G[ʻ‘’']/g, "Ğ").replace(/g[ʻ‘’']/g, "ğ")
+      .replace(/SH/g, "Ş").replace(/S[hH]/g, "Ş").replace(/sh/g, "ş").replace(/CH/g, "Ç").replace(/C[hH]/g, "Ç").replace(/ch/g, "ç");
+  },
+  skip(n) { for (let e = n.parentElement; e; e = e.parentElement) if (e.classList?.contains("noalif") || e.tagName === "SCRIPT" || e.tagName === "STYLE" || e.closest?.(".alif")) return true; return false; },
+  walk(root) {
+    if (this.mode !== "yangi" || !root) return;
+    if (root.nodeType === 3) { if (!this.skip(root)) { const v = this.conv(root.nodeValue); if (v !== root.nodeValue) root.nodeValue = v; } return; }
+    const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT); let n;
+    while ((n = w.nextNode())) { if (this.skip(n)) continue; const v = this.conv(n.nodeValue); if (v !== n.nodeValue) n.nodeValue = v; }
+  },
+  set(m) { this.mode = m; try { localStorage.setItem("alif", m); } catch (e) {} this.mark(); if (m === "yangi") this.walk(document.body); else if (ME) home(); },
+  mark() { document.querySelectorAll(".alif button").forEach(b => b.classList.toggle("on", b.dataset.a === this.mode)); },
+};
+new MutationObserver(ms => { for (const m of ms) { if (m.type === "characterData") Alif.walk(m.target); else m.addedNodes.forEach(n => Alif.walk(n)); } Alif.mark(); })
+  .observe(document.body, { childList: true, subtree: true, characterData: true });
 
 load();
 </script>
