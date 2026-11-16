@@ -32,6 +32,7 @@
   .bar { height: 6px; background: var(--border); border-radius: 3px; margin: 8px 0 4px; overflow: hidden; }
   .bar i { display: block; height: 100%; background: var(--primary); }
   .sign { display: flex; justify-content: center; } .sign svg { width: 110px; height: 110px; }
+  .quote { margin: 8px 0 4px; padding: 8px 10px; border-left: 3px solid var(--primary); background: rgba(127,127,127,.08); border-radius: 6px; font-size: 14px; font-style: italic; }
   .explain { margin-top: 10px; padding: 12px; border-radius: 12px; background: var(--card); font-size: 15px; line-height: 1.5; }
   .big { font-size: 44px; font-weight: 800; text-align: center; margin: 6px 0; }
   .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 12px 0; }
@@ -145,7 +146,7 @@ function home() {
     <button class="tile" onclick="carSelect()"><span class="ic">🏁</span><div><b>Avtodrom</b>
       <span>3D: "B" toifaning 12 ta rasmiy mashqi</span></div></button>
     <button class="tile" onclick="Test.start('practice')"><span class="ic">📘</span><div><b>Mashq testi</b>
-      <span>${QS.length} ta savol, izohlar bilan</span></div></button>
+      <span>${QS.length} ta savol${QS.length > 20 ? `, ${new Set(QS.map(q => q.t)).size} ta mavzu` : ""}, izoh va YHQ matni bilan</span></div></button>
     <button class="tile" onclick="${ME.paid ? "Test.start('exam')" : "buy()"}"><span class="ic">⏱</span><div><b>Imtihon ${ME.paid ? "" : "🔒"}</b>
       <span>20 ta savol, 25 daqiqa, 2 tagacha xato</span></div></button>
     <div class="stats">
@@ -181,15 +182,29 @@ const SIGN = {
 };
 const shuffle = a => a.map(x => [Math.random(), x]).sort((p, q) => p[0] - q[0]).map(x => x[1]);
 
+const esc = v => String(v).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const Test = {
-  st: null, timer: null,
-  start(mode) {
-    const list = mode === "exam" ? shuffle(QS).slice(0, 20) : shuffle(QS);
-    this.st = { mode, list, i: 0, ok: 0, err: 0, done: false, end: Date.now() + 25 * 60000 };
+  st: null, timer: null, T: [],
+  // mashq: mavzu tanlanadi, har safar 20 ta savol; imtihon: barcha savollardan tasodifiy 20 ta
+  start(mode, topic) {
+    if (mode === "practice" && topic === undefined && QS.length > 20) return this.topics();
+    const pool = topic ? QS.filter(q => q.t === topic) : QS;
+    const list = mode === "exam" ? shuffle(QS).slice(0, 20) : shuffle(pool).slice(0, 20);
+    this.st = { mode, topic, list, i: 0, ok: 0, err: 0, done: false, end: Date.now() + 25 * 60000 };
     clearInterval(this.timer);
     if (mode === "exam") this.timer = setInterval(() => this.tick(), 1000);
     this.render();
   },
+  topics() {
+    const m = new Map(); QS.forEach(q => m.set(q.t, (m.get(q.t) || 0) + 1));
+    const items = [...m].sort((a, b) => b[1] - a[1]); this.T = items.map(x => x[0]);
+    app.innerHTML = `<h1>📘 Mashq testi</h1>
+      <p>Mavzuni tanlang. Har safar 20 ta savol tasodifiy tartibda beriladi, har biriga izoh va YHQ'dagi asl matn ko'rsatiladi.</p>
+      <button class="tile" onclick="Test.start('practice', '')"><span class="ic">🔀</span><div><b>Aralash — barcha mavzular</b><span>${QS.length} ta savol</span></div></button>
+      ${items.map(([t, n], i) => `<button class="opt" onclick="Test.start('practice', Test.T[${i}])">${esc(t)} <small style="opacity:.6">· ${n} ta</small></button>`).join("")}
+      <button class="btn ghost" onclick="home()">Orqaga</button>`;
+  },
+  again() { const s = this.st; this.start(s.mode, s.mode === "practice" ? (s.topic || "") : undefined); },
   tick() {
     const left = Math.max(0, this.st.end - Date.now()), el = document.getElementById("time");
     if (el) el.textContent = `${Math.floor(left / 60000)}:${String(Math.floor(left / 1000) % 60).padStart(2, "0")}`;
@@ -202,8 +217,9 @@ const Test = {
         <span>${s.mode === "exam" ? `⏱ <b id="time"></b> · ❌ ${s.err}/2` : `✅ ${s.ok} · ❌ ${s.err}`}</span></div>
       <div class="bar"><i style="width:${s.i / s.list.length * 100}%"></i></div>
       ${q.s ? `<div class="sign">${SIGN[q.s] || ""}</div>` : ""}
-      <h2>${q.q}</h2>
-      ${q.o.map((t, k) => `<button class="opt" onclick="Test.answer(${k})">${t}</button>`).join("")}
+      ${s.topic ? `<p style="margin:0">${esc(s.topic)}</p>` : ""}
+      <h2>${esc(q.q)}</h2>
+      ${q.o.map((t, k) => `<button class="opt" onclick="Test.answer(${k})">${esc(t)}</button>`).join("")}
       <div id="after"></div>
       <button class="btn ghost" onclick="Test.quit()">Chiqish</button>`;
     if (s.mode === "exam") this.tick();
@@ -216,7 +232,7 @@ const Test = {
     tg && tg.HapticFeedback && tg.HapticFeedback.notificationOccurred(k === q.a ? "success" : "error");
     if (s.mode === "exam" && s.err > 2) return setTimeout(() => this.finish("2 tadan ko'p xato"), 800);
     const last = s.i === s.list.length - 1;
-    document.getElementById("after").innerHTML = (s.mode === "practice" ? `<div class="explain">💡 ${q.e}${q.src ? `<br><small>📖 Manba: YHQ, ${q.src}</small>` : ""}</div>` : "") +
+    document.getElementById("after").innerHTML = (s.mode === "practice" ? `<div class="explain">💡 ${esc(q.e)}${q.iq ? `<div class="quote">📜 YHQ: «${esc(q.iq)}»</div>` : ""}${q.src ? `<small>📖 Manba: YHQ, ${esc(q.src)}</small>` : ""}</div>` : "") +
       `<button class="btn" onclick="Test.next()">${last ? "Natija" : "Keyingisi →"}</button>`;
   },
   next() { const s = this.st; if (s.i === s.list.length - 1) return this.finish(); s.i++; this.render(); },
@@ -230,7 +246,7 @@ const Test = {
       ${reason ? `<p>Sabab: ${reason}</p>` : ""}
       <div class="big">${s.ok} / ${s.list.length}</div>
       <div class="stats"><div class="stat"><b>${s.ok}</b>to'g'ri</div><div class="stat"><b>${s.err}</b>xato</div></div>
-      <button class="btn" onclick="Test.start('${s.mode}')">Qaytadan</button>
+      <button class="btn" onclick="Test.again()">Qaytadan</button>
       <button class="btn ghost" onclick="home()">Bosh sahifa</button>`;
   },
 };
