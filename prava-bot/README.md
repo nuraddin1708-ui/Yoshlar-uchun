@@ -96,6 +96,8 @@ Savollar `questions.json` faylida. Har bir savol:
 - `a` — to'g'ri javobning raqami (0 dan boshlanadi).
 - `src` — YHQdagi manba (band yoki ilova), `iq` — qonundan asl iqtibos. Ikkalasi ham mashq rejimida izoh ostida ko'rsatiladi.
 - Mashq rejimida mavzu tanlanadi va har safar 20 ta savol beriladi; imtihonda barcha savollardan tasodifiy 20 ta.
+- **Rasmlar:** 248 ta savolda yo'l belgisi yoki chizig'i rasmi, 43 ta savolda javob variantlari belgilar rasmi bilan (`webapp/belgilar.js`, SVG, YHQ 1- va 2-ilovalaridagi nomlar bo'yicha). Shakli aniq bo'lmagan bir nechta belgi uchun xato rasm o'rniga guruh ramkasi va raqami chiqadi.
+- **Animatsiyalar:** 17 ta qoida sahnasi (chorrahalar, svetofor, piyodalar o'tish joyi, quvib o'tish, temir yo'l kesishmasi, avariya, maxsus transport, aylanma, fara chiroqlari, shatak va boshqalar) — mashq rejimida izoh ostida, savolning YHQ bandiga qarab (`webapp/animatsiya.js`).
 - **Alifbo:** bosh sahifada tanlanadi — yangi (ö, ğ, ş, ç; standart) yoki amaldagi (o', g', sh, ch). Bazadagi matn amaldagi alifboda saqlanadi, yangi alifbo ekranda almashtiriladi.
 - `s` — ixtiyoriy belgi rasmi: `stop`, `giveway`, `noentry`, `warning`, `straight`, `crossing`, `redlight`, `yellow`, `rail`, `solid`, `dashed`.
 - Yangi savol qo'shgach, botni qayta ishga tushiring.

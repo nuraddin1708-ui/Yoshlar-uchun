@@ -35,6 +35,11 @@
   .alif { display: flex; gap: 6px; align-items: center; font-size: 13px; color: var(--muted); margin: 4px 0 2px; }
   .alif button { padding: 5px 9px; border-radius: 8px; background: var(--card); color: var(--text); border: 1px solid var(--border); font-size: 13px; }
   .alif button.on { background: var(--primary); color: var(--ptext); border-color: var(--primary); }
+  .qimg { display: flex; justify-content: center; gap: 12px; margin: 6px 0 2px; flex-wrap: wrap; }
+  .qimg svg { width: 112px; height: 112px; filter: drop-shadow(0 2px 3px rgba(0,0,0,.25)); }
+  .opt.withimg { display: flex; align-items: center; gap: 10px; }
+  .oimg svg { width: 48px; height: 48px; flex: none; display: block; }
+  .anim { margin: 8px 0 4px; } .anim svg { width: 100%; height: auto; display: block; border-radius: 10px; }
   .quote { margin: 8px 0 4px; padding: 8px 10px; border-left: 3px solid var(--primary); background: rgba(127,127,127,.08); border-radius: 6px; font-size: 14px; font-style: italic; }
   .explain { margin-top: 10px; padding: 12px; border-radius: 12px; background: var(--card); font-size: 15px; line-height: 1.5; }
   .big { font-size: 44px; font-weight: 800; text-align: center; margin: 6px 0; }
@@ -120,6 +125,8 @@
   <div class="pedal" id="pGas">GAZ</div>
 </div>
 
+<script src="belgilar.js"></script>
+<script src="animatsiya.js"></script>
 <script>
 const tg = window.Telegram && Telegram.WebApp;
 if (tg) { tg.ready(); tg.expand(); }
@@ -221,9 +228,11 @@ const Test = {
         <span>${s.mode === "exam" ? `⏱ <b id="time"></b> · ❌ ${s.err}/2` : `✅ ${s.ok} · ❌ ${s.err}`}</span></div>
       <div class="bar"><i style="width:${s.i / s.list.length * 100}%"></i></div>
       ${q.s ? `<div class="sign">${SIGN[q.s] || ""}</div>` : ""}
+      ${q.im && window.ROADSIGN ? `<div class="qimg noalif">${q.im.map(k => (k[0] === "S" ? ROADSIGN : ROADMARK)(k.slice(2)) || "").join("")}</div>` : ""}
       ${s.topic ? `<p style="margin:0">${esc(s.topic)}</p>` : ""}
       <h2>${esc(q.q)}</h2>
-      ${q.o.map((t, k) => `<button class="opt" onclick="Test.answer(${k})">${esc(t)}</button>`).join("")}
+      ${q.o.map((t, k) => { const c = q.oi && window.ROADSIGN && (t.match(/[1-7]\.\d{1,2}(\.\d{1,2})?/) || [])[0];
+        return `<button class="opt${c ? " withimg" : ""}" onclick="Test.answer(${k})">${c ? `<span class="oimg noalif">${ROADSIGN(c) || ""}</span>` : ""}<span>${esc(t)}</span></button>`; }).join("")}
       <div id="after"></div>
       <button class="btn ghost" onclick="Test.quit()">Chiqish</button>`;
     if (s.mode === "exam") this.tick();
@@ -236,7 +245,7 @@ const Test = {
     tg && tg.HapticFeedback && tg.HapticFeedback.notificationOccurred(k === q.a ? "success" : "error");
     if (s.mode === "exam" && s.err > 2) return setTimeout(() => this.finish("2 tadan ko'p xato"), 800);
     const last = s.i === s.list.length - 1;
-    document.getElementById("after").innerHTML = (s.mode === "practice" ? `<div class="explain">💡 ${esc(q.e)}${q.iq ? `<div class="quote">📜 YHQ: «${esc(q.iq)}»</div>` : ""}${q.src ? `<small>📖 Manba: YHQ, ${esc(q.src)}</small>` : ""}</div>` : "") +
+    document.getElementById("after").innerHTML = (s.mode === "practice" ? `<div class="explain">💡 ${esc(q.e)}${window.RULE_ANIM ? (a => a ? `<div class="anim">${a}</div>` : "")(RULE_ANIM(q.src, q.t)) : ""}${q.iq ? `<div class="quote">📜 YHQ: «${esc(q.iq)}»</div>` : ""}${q.src ? `<small>📖 Manba: YHQ, ${esc(q.src)}</small>` : ""}</div>` : "") +
       `<button class="btn" onclick="Test.next()">${last ? "Natija" : "Keyingisi →"}</button>`;
   },
   next() { const s = this.st; if (s.i === s.list.length - 1) return this.finish(); s.i++; this.render(); },
