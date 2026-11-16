@@ -117,6 +117,8 @@
   #gearInd { font-size: 26px; font-weight: 900; color: #ffd54f; min-width: 22px; text-align: center; }
   @media (orientation: portrait) { #dash { bottom: auto; top: 60px; } }
   #game.cabin .msg { top: calc(min(30vw, 360px) / 3.2 + 30px); max-width: 56%; }
+  /* portretda topshiriq matni tablo ostida chiqsin (ustma-ust tushmasin) */
+  @media (orientation: portrait) { #game .msg, #game.cabin .msg { top: calc(min(18vh, 120px) + 82px); max-width: 92%; } }
 </style>
 </head>
 <body>
