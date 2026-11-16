@@ -419,7 +419,7 @@ function makeCourse(spec) {
       if (st.trig && !st.react && d.brakeV > 0.3) st.react = true;
       if (st.trig && !st.react && !st.late && d.t - st.t0 > 1.0) { st.late = true; d.err("Avariya signalida kech tormoz berdingiz (1 soniyadan ko'p)"); }
       if (st.trig && !st.ok && Math.abs(d.car.v) < 0.05) { st.ok = true; lampM.emissiveIntensity = 0.05; d.say("✅ To'xtadingiz. Finishga boring"); }
-      d.signal = st.trig && !st.ok;
+      d.alarmOn = st.trig && !st.ok;
     } }), P); }
   road(4);
 
@@ -660,6 +660,16 @@ const Drive = {
     if (this.carObj) this.scene.remove(this.carObj);
     this.carObj = carMesh(spec); this.scene.add(this.carObj); this.spec = spec;
     this.carObj.traverse(o => { if (o.isMesh) o.castShadow = true; });
+    // burilish chiroqlari (povorotnik): oldi, orqasi va yon oynacha yonida — miltillaydi
+    const bm = () => new THREE.MeshStandardMaterial({ color: 0x5a3a00, emissive: 0xff9800, emissiveIntensity: 0.05 });
+    this.blinkM = { L: bm(), R: bm() };
+    const by = spec.type === "van" ? 0.75 : 0.62;
+    for (const [sx, k] of [[-1, "L"], [1, "R"]]) {
+      for (const [z, r] of [[-spec.len / 2 + 0.06, 0.1], [spec.len / 2 - 0.06, 0.1], [-spec.len / 2 + 1.0, 0.07]]) {
+        const m = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 8), this.blinkM[k]);
+        m.position.set(sx * (spec.wid / 2 + 0.01), by + (r < 0.1 ? 0.12 : 0), z); this.carObj.add(m);
+      }
+    }
     // kabinadan ko'rinadigan kapot
     if (this.hood) this.scene.remove(this.hood);
     this.hood = null;
@@ -674,7 +684,7 @@ const Drive = {
     const s0 = this.course.start;
     this.car = { x: s0.x, z: s0.z, h: s0.h, v: 0, steer: 0, y: 0 };
     Object.assign(this.ctl, { wheel: 0, touch: false, gas: 0, brake: 0, gear: "P", sigL: false, sigR: false, horn: false, cancel: false, belt: false });
-    Object.assign(this, { t: 0, pen: 0, mi: 0, log: [], edge: false, edgeT: 0, speeding: false, signal: false, prevFv: null, result: null, keys: {}, blink: 0, frame: 0, beltErr: false, chime: 0 });
+    Object.assign(this, { t: 0, pen: 0, mi: 0, log: [], edge: false, edgeT: 0, speeding: false, alarmOn: false, prevFv: null, result: null, keys: {}, blink: 0, frame: 0, beltErr: false, chime: 0 });
     this.say(`1-mashq: ${this.course.mods[0].name}. Kamarni taqing, tormozni bosib uzatmani D ga qo'ying, chap burilish chirog'ini yoqing. Tezlik — 20 km/soatgacha`, 8);
     this.syncUI();
     this.run = true; this.last = performance.now(); const gen = this.gen = (this.gen || 0) + 1;
@@ -756,7 +766,8 @@ const Drive = {
     ctl.wheel = Math.max(-WHEEL_MAX, Math.min(WHEEL_MAX, ctl.wheel));
     c.steer = ctl.wheel / WHEEL_MAX * STEER;
     // povorotnik: burilishdan keyin rul qaytganda o'zi o'chadi (46-band)
-    if ((ctl.sigL || ctl.sigR) && Math.abs(ctl.wheel) > 200) ctl.cancel = true;
+    // (haqiqiy mashinadagidek: faqat o'sha tomonga burilib, rul qaytgandagina o'chadi)
+    if ((ctl.sigL && ctl.wheel < -200) || (ctl.sigR && ctl.wheel > 200)) ctl.cancel = true;
     if (ctl.cancel && Math.abs(ctl.wheel) < 40) { ctl.sigL = ctl.sigR = false; ctl.cancel = false; this.syncUI(); }
     // --- fizika: avtomat uzatma, tormoz, qiyalik ---
     const [fx, fz] = this.fwd();
@@ -820,6 +831,7 @@ const Drive = {
     const nd = ui("needle"); if (nd) nd.setAttribute("transform", `rotate(${-120 + Math.min(100, kmh) * 2.4} 60 60)`);
     if (ui("spd")) ui("spd").textContent = Math.round(kmh);
     ui("tlL")?.classList.toggle("on", ctl.sigL && on); ui("tlR")?.classList.toggle("on", ctl.sigR && on);
+    if (this.blinkM) { this.blinkM.L.emissiveIntensity = ctl.sigL && on ? 3 : 0.05; this.blinkM.R.emissiveIntensity = ctl.sigR && on ? 3 : 0.05; }
     ui("tlB")?.classList.toggle("on", brakeV > 0.1 || ctl.gear === "P");
     ui("tlS")?.classList.toggle("on", !ctl.belt && (on || Math.abs(c.v) < 0.3));
     // kamar taqilmagan bo'lsa, yurganda ogohlantiruv ovozi (haqiqiy mashinalardagidek)

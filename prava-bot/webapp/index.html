@@ -161,10 +161,10 @@
     <div><div id="gearInd">P</div><span class="tl" id="tlB" title="Tormoz">⓿</span><span class="tl" id="tlS" title="Kamar taqilmagan"><svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="4.2" r="2.7" fill="currentColor"/><path d="M6.5 9.5Q12 7.5 17.5 9.5L16.5 18H7.5Z" fill="currentColor"/><path d="M8 8.6L15.6 17.6" stroke="#111" stroke-width="2"/><rect x="5" y="19" width="14" height="2.4" rx="1" fill="currentColor"/></svg></span></div>
     <span class="tl" id="tlR">➡</span>
   </div>
-  <div class="sigs"><button class="ctlb" style="position:static" id="bSigL" onclick="Drive.signal('L')">⬅</button>
+  <div class="sigs"><button class="ctlb" style="position:static" id="bSigL">⬅</button>
     <button class="ctlb" style="position:static" id="bHorn">📯</button>
-    <button class="ctlb" style="position:static" id="bBelt" onclick="Drive.belt()"><svg viewBox="0 0 24 24" width="24" height="24"><circle cx="12" cy="4.2" r="2.7" fill="currentColor"/><path d="M6.5 9.5Q12 7.5 17.5 9.5L16.5 18H7.5Z" fill="currentColor"/><path d="M8 8.6L15.6 17.6" stroke="#111" stroke-width="2"/><rect x="5" y="19" width="14" height="2.4" rx="1" fill="currentColor"/></svg></button>
-    <button class="ctlb" style="position:static" id="bSigR" onclick="Drive.signal('R')">➡</button></div>
+    <button class="ctlb" style="position:static" id="bBelt"><svg viewBox="0 0 24 24" width="24" height="24"><circle cx="12" cy="4.2" r="2.7" fill="currentColor"/><path d="M6.5 9.5Q12 7.5 17.5 9.5L16.5 18H7.5Z" fill="currentColor"/><path d="M8 8.6L15.6 17.6" stroke="#111" stroke-width="2"/><rect x="5" y="19" width="14" height="2.4" rx="1" fill="currentColor"/></svg></button>
+    <button class="ctlb" style="position:static" id="bSigR">➡</button></div>
   <div id="wheelBox"><svg id="wheel" viewBox="0 0 200 200">
     <circle cx="100" cy="100" r="88" fill="none" stroke="#1d1f23" stroke-width="20"/>
     <circle cx="100" cy="100" r="88" fill="none" stroke="#3b3f46" stroke-width="3" stroke-dasharray="6 10"/>
@@ -206,7 +206,7 @@ function home() {
   app.innerHTML = `
     <h1>🚦 Yo'l qoidasi</h1>
     <p class="slogan">Biz bilan osonroq</p>
-    <p>Salom, ${ME.name ? `<span class="noalif">${esc(ME.name)}</span>` : "do'st"}! ${ME.paid ? `<span class="badge">To'liq versiya</span>` : ""}</p>
+    <p>Salom, ${ME.name ? `<span class="noalif">${esc(ME.name)}</span>` : "do'st"}! ${ME.donor && ME.paymode === "optional" ? `<span class="badge">⭐ Qo'llab-quvvatlovchi</span>` : ME.paid && ME.paymode !== "optional" ? `<span class="badge">To'liq versiya</span>` : ""}</p>
     <div class="alif">Alifbo: <button onclick="Alif.set('yangi')" data-a="yangi">Ö ö Ş ş Ç ç Ğ ğ</button><button onclick="Alif.set('eski')" data-a="eski">O' o' Sh sh Ch ch G' g'</button></div>
     ${ME.admin ? `<button class="tile" onclick="Admin.open()"><span class="ic">🛠</span><div><b>Admin panel</b><span>Statistika, foydalanuvchilar, narx, xabar yuborish</span></div></button>` : ""}
     <button class="tile" onclick="carSelect()"><span class="ic">🏁</span><div><b>Avtodrom</b>
@@ -221,7 +221,10 @@ function home() {
       <div class="stat"><b>${ME.best_test || 0}/20</b>eng yaxshi test</div>
       <div class="stat"><b>${ME.best_drive ? ME.best_drive + " s" : "—"}</b>eng tez avtodrom</div>
     </div>
-    ${ME.paid ? "" : `<p>Bepul: ${QS.length} ta savol va avtodrom. To'liq versiyada — barcha ${TOTAL} savol va imtihon.</p>
+    ${ME.paymode === "optional"
+      ? `<p>Barcha bo'limlar bepul. Loyiha sizga yoqqan bo'lsa, xohishingizga ko'ra qo'llab-quvvatlashingiz mumkin.</p>
+      <button class="btn ghost" onclick="buy()">⭐ Qo'llab-quvvatlash (${ME.price} Stars)</button>`
+      : ME.paid ? "" : `<p>Bepul: ${QS.length} ta savol va avtodrom. To'liq versiyada — barcha ${TOTAL} savol va imtihon.</p>
       <button class="btn" onclick="buy()">⭐ To'liq versiyani ochish</button>`}`;
 }
 
@@ -229,8 +232,8 @@ async function buy() {
   try {
     const { link } = await api("/api/invoice", {});
     tg.openInvoice(link, async st => { if (st !== "paid") return;
-      for (let i = 0; i < 8 && !(ME && ME.paid); i++) { await new Promise(r => setTimeout(r, 800)); try { ME = await api("/api/me"); } catch (e) {} }
-      await load(); tg.showAlert("To'liq versiya ochildi! 🎉"); });
+      for (let i = 0; i < 8 && !(ME && ME.donor); i++) { await new Promise(r => setTimeout(r, 800)); try { ME = await api("/api/me"); } catch (e) {} }
+      await load(); tg.showAlert(ME.paymode === "optional" ? "Katta rahmat! 🎉" : "To'liq versiya ochildi! 🎉"); });
   } catch (e) { tg ? tg.showAlert("To'lovni ochib bo'lmadi. Botdagi tugmadan foydalaning.") : alert("Xatolik"); }
 }
 
@@ -377,6 +380,12 @@ for (const [id, key] of [["pBrake", "brake"], ["pGas", "gas"]]) {
   const off = () => { Drive.ctl[key] = 0; p.classList.remove("on"); };
   p.addEventListener("pointerup", off); p.addEventListener("pointercancel", off);
 }
+// Povorotnik va kamar: "click" emas, "pointerdown" — telefonda boshqa barmoq pedalni bosib turganda ham ishlaydi
+// (iOS/Android ikkinchi barmoq bosganda "click" hodisasini yubormaydi)
+[["bSigL", () => Drive.signal("L")], ["bSigR", () => Drive.signal("R")], ["bBelt", () => Drive.belt()]].forEach(([id, fn]) => {
+  const b = document.getElementById(id); if (!b) return;
+  b.addEventListener("pointerdown", e => { e.preventDefault(); if (Drive.run) fn(); });
+});
 document.querySelectorAll("#gearbox button").forEach(b => b.addEventListener("pointerdown", e => { e.preventDefault(); Drive.setGear(b.dataset.g); }));
 { const h = document.getElementById("bHorn");
   h.addEventListener("pointerdown", e => { e.preventDefault(); Drive.horn(true); }); h.addEventListener("pointerup", () => Drive.horn(false)); h.addEventListener("pointercancel", () => Drive.horn(false)); }
@@ -414,21 +423,26 @@ const Admin = {
       <div class="stats g3">${card(s.users, "foydalanuvchi")}${card(s.new1, "yangi (24 soat)")}${card(s.new7, "yangi (7 kun)")}
         ${card(s.active1, "faol (24 soat)")}${card(s.active7, "faol (7 kun)")}${card(s.paid, "to'lagan")}
         ${card(`${s.stars} ⭐`, "jami tushum")}${card(`${s.stars7} ⭐`, `7 kunda (${s.pays7} ta)`)}${card(s.gift, "sovg'a")}
-        ${card(s.avgTest ? `${s.avgTest}/20` : "—", "o'rtacha test")}${card(s.drivers, "avtodromdan o'tgan")}${card(s.blocked, "botni bloklagan")}</div>
+        ${card(s.avgTest ? `${s.avgTest}/20` : "—", "o'rtacha test")}${card(s.drivers, "avtodromdan o'tgan")}${card(s.blocked, "botni bloklagan")}${card(s.banned, "admin bloklagan")}</div>
+      <div class="explain"><b>💳 To'lov rejimi</b>
+        <div class="arow"><select id="aMode"><option value="required">Majburiy — to'liq versiya pullik</option><option value="optional">Ixtiyoriy — hammasi bepul, xohlagan qo'llab-quvvatlaydi</option></select>
+          <button class="btn" onclick="Admin.mode()">Saqlash</button></div>
+        <small>${s.paymode === "optional" ? "Hozir: ixtiyoriy — barcha bo'limlar hammaga ochiq." : "Hozir: majburiy — bepul foydalanuvchilarga 10 ta savol, 3 ta vaziyat."}</small></div>
       <div class="explain"><b>💲 Narx (Telegram Stars)</b>
         <div class="arow"><input id="aPrice" type="number" min="1" max="10000" value="${s.price}"><button class="btn" onclick="Admin.price()">Saqlash</button></div>
-        <small>Bazada ${s.questions} ta savol. Qaytarilgan to'lovlar: ${s.refunds}.</small></div>
+        <small>${s.paymode === "optional" ? "Ixtiyoriy rejimda bu — qo'llab-quvvatlash summasi. " : ""}Bazada ${s.questions} ta savol. Qaytarilgan to'lovlar: ${s.refunds}.</small></div>
       <div class="explain"><b>📣 Hammaga xabar</b>
         <textarea id="aText" rows="4" placeholder="Xabar matni (barcha foydalanuvchilarga yuboriladi)"></textarea>
         <button class="btn" onclick="Admin.broadcast()">Yuborish</button>
         ${b ? `<small>Oxirgi xabar: ${b.done ? "✅ tugadi" : "⏳ yuborilmoqda"} — ${b.sent} yuborildi, ${b.failed} xato, jami ${b.total} (${dt(b.started)})</small>` : ""}</div>
       <div class="explain"><b>👥 Foydalanuvchilar</b>
         <div class="arow"><input id="aQ" placeholder="Ism, @username yoki ID" value="${esc(this.q)}" onkeydown="if(event.key==='Enter')Admin.find()">
-          <select id="aF" onchange="Admin.find()"><option value="">Barchasi</option><option value="paid">To'lagan</option><option value="gift">Sovg'a</option><option value="free">Bepul</option></select>
+          <select id="aF" onchange="Admin.find()"><option value="">Barchasi</option><option value="paid">To'lagan</option><option value="gift">Sovg'a</option><option value="free">Bepul</option><option value="banned">Bloklangan</option></select>
           <button class="btn" onclick="Admin.find()">🔍</button></div>
         <div id="aU"></div></div>
+      <div class="explain"><b>🧾 Admin amallari jurnali</b><div id="aLog"><small>Yuklanmoqda...</small></div></div>
       <button class="btn ghost" onclick="home()">Bosh sahifa</button>`;
-    document.getElementById("aF").value = this.f; this.list(false);
+    document.getElementById("aF").value = this.f; document.getElementById("aMode").value = s.paymode || "required"; this.list(false); this.audit();
   },
   find() { this.q = document.getElementById("aQ").value.trim(); this.f = document.getElementById("aF").value; this.o = 0; this.list(false); },
   async list(more) {
@@ -436,13 +450,31 @@ const Admin = {
     const d = await api(`/api/admin/users?q=${encodeURIComponent(this.q)}&f=${this.f}&o=${this.o}`);
     const rows = d.rows.map(u => `<div class="urow" id="u${u.id}">
         <div><b class="noalif">${esc(u.name || "—")}</b> ${u.username ? `<span class="noalif">@${esc(u.username)}</span>` : ""} <small>· ID ${u.id}</small>
-          ${u.paid ? (u.gift ? `<span class="badge">🎁 sovg'a</span>` : `<span class="badge">⭐ ${u.paid_amount || ""} to'lagan</span>`) : ""} ${u.blocked ? `<span class="badge bad">bloklagan</span>` : ""}</div>
+          ${u.paid ? (u.gift ? `<span class="badge">🎁 sovg'a</span>` : `<span class="badge">⭐ ${u.paid_amount || ""} to'lagan</span>`) : ""} ${u.blocked ? `<span class="badge bad">botni bloklagan</span>` : ""} ${u.banned ? `<span class="badge bad">⛔ bloklangan</span>` : ""}</div>
         <small>Kelgan: ${dt(u.created_at)} · oxirgi: ${dt(u.last_seen)} · test: ${u.best_test || 0}/20 · avtodrom: ${u.best_drive ? u.best_drive + " s" : "—"}${u.paid_at ? ` · ochilgan: ${dt(u.paid_at)}` : ""}</small>
         <div class="ubtn">${u.paid ? `<button onclick="Admin.grant(${u.id}, false)">❌ Olib qo'yish</button>` : `<button onclick="Admin.grant(${u.id}, true)">🎁 Sovg'a qilish</button>`}
           ${u.paid && !u.gift && u.charge_id ? `<button onclick="Admin.refund(${u.id})">↩️ Pulni qaytarish</button>` : ""}
-          <button onclick="Admin.msg(${u.id})">✉️ Xabar</button></div></div>`).join("");
+          <button onclick="Admin.msg(${u.id})">✉️ Xabar</button>
+          <button onclick="Admin.ban(${u.id}, ${u.banned ? "false" : "true"})">${u.banned ? "✅ Blokdan chiqarish" : "⛔ Bloklash"}</button></div></div>`).join("");
     box.innerHTML = (more ? box.innerHTML.replace(/<button class="btn ghost" id="aMore"[\s\S]*$/, "") : `<small>Topildi: ${d.total}</small>`) + rows +
       (this.o + d.rows.length < d.total ? `<button class="btn ghost" id="aMore" onclick="Admin.o += 30; Admin.list(true)">Yana ko'rsatish</button>` : "");
+  },
+  async mode() {
+    const m = document.getElementById("aMode").value;
+    if (!(await askYes(m === "optional" ? "To'lov ixtiyoriy bo'ladi: barcha bo'limlar hammaga bepul ochiladi. Rozimisiz?" : "To'lov majburiy bo'ladi: to'lamaganlarga faqat bepul qism qoladi. Rozimisiz?"))) return;
+    try { await api("/api/admin/paymode", { mode: m }); say("Saqlandi"); this.open(); } catch (e) { say("Xato: " + e.message); }
+  },
+  async ban(id, on) {
+    if (!(await askYes(on ? `ID ${id} bloklansinmi? U botdan va ilovadan foydalana olmaydi.` : `ID ${id} blokdan chiqarilsinmi?`))) return;
+    try { await api("/api/admin/ban", { id, on }); this.list(false); this.audit(); } catch (e) { say("Xato: " + e.message); }
+  },
+  async audit() {
+    const box = document.getElementById("aLog"); if (!box) return;
+    const names = { gift: "🎁 sovg'a berdi", ungift: "❌ sovg'ani oldi", refund: "↩️ pul qaytardi", price: "💲 narx", paymode: "💳 to'lov rejimi",
+      broadcast: "📣 hammaga xabar", message: "✉️ xabar", ban: "⛔ blokladi", unban: "✅ blokdan chiqardi" };
+    try { const rows = await api("/api/admin/audit");
+      box.innerHTML = rows.length ? rows.map(r => `<small>${dt(r.at)} · admin ${r.admin}: ${names[r.action] || esc(r.action)}${r.target ? ` → ID ${r.target}` : ""}${r.info ? ` — <span class="noalif">${esc(String(r.info))}</span>` : ""}</small>`).join("<br>") : "<small>Hali amal yo'q</small>";
+    } catch (e) { box.innerHTML = "<small>Yuklanmadi</small>"; }
   },
   async price() {
     const v = +document.getElementById("aPrice").value;
