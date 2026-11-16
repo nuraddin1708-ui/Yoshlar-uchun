@@ -689,7 +689,10 @@ const Drive = {
     // ko'zgular joylashuvi (piksel): salon ko'zgusi tepada o'rtada, yon ko'zgular chetlarda
     const rw = Math.min(w * 0.3, 360), rh = rw / 3.2, sw = Math.min(w * 0.17, 200), sh = sw / 1.6;
     const place = (m, cx, cy, ww, hh) => { m.glass.position.set(cx, cy, 0); m.glass.scale.set(ww, hh, 1); m.frame.position.set(cx, cy, -0.1); m.frame.scale.set(ww + 8, hh + 8, 1); };
-    place(this.mirrors[0], w / 2, h - 18 - rh / 2, rw, rh);
+    // portretda salon ko'zgusi HUD qatoridan (1/12) pastroqda turadi; tablo esa ko'zgu ostiga tushadi
+    const top0 = 32;
+    place(this.mirrors[0], w / 2, h - top0 - rh / 2, rw, rh);
+    ui("game")?.style.setProperty("--mirB", Math.round(top0 + rh + 10) + "px");
     place(this.mirrors[1], 6 + sw / 2, h * 0.665, sw, sh);
     place(this.mirrors[2], w - 6 - sw / 2, h * 0.665, sw, sh);
   },

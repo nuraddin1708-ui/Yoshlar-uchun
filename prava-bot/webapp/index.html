@@ -116,9 +116,18 @@
   #bBelt.on { background: #2e7d32; border-color: #9cff9c; } #bBelt:not(.on) { background: rgba(200,40,40,.7); }
   #gearInd { font-size: 26px; font-weight: 900; color: #ffd54f; min-width: 22px; text-align: center; }
   @media (orientation: portrait) { #dash { bottom: auto; top: 60px; } }
-  #game.cabin .msg { top: calc(min(30vw, 360px) / 3.2 + 30px); max-width: 56%; }
+  #game.cabin .msg { top: calc(min(30vw, 360px) / 3.2 + 44px); max-width: 56%; }
   /* portretda topshiriq matni tablo ostida chiqsin (ustma-ust tushmasin) */
-  @media (orientation: portrait) { #game .msg, #game.cabin .msg { top: calc(min(18vh, 120px) + 82px); max-width: 92%; } }
+  @media (orientation: portrait) {
+    #game { --dashTop: 60px; --dsz: min(16vh, 120px); }
+    #game.cabin { --dashTop: max(60px, var(--mirB, 60px)); }
+    #dash { top: var(--dashTop); }
+    #dash > svg { width: var(--dsz); height: var(--dsz); }
+    #game .msg, #game.cabin .msg { top: calc(var(--dashTop) + var(--dsz) + 22px); max-width: 92%; }
+    /* salonda yon ko'zgular bilan ustma-ust tushmasin */
+    #game.cabin .msg { max-width: calc(100vw - 2 * min(17vw, 200px) - 28px); }
+  }
+  @media (max-width: 380px) { .sigs { gap: 6px; } .sigs button { width: 40px; height: 36px; font-size: 18px; } }
 </style>
 </head>
 <body>
